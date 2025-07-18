@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "97669346140",
+    "project_id": "greenpaalnayojna",
+    "storage_bucket": "greenpaalnayojna.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:97669346140:android:2e9a348fb912df90b70799",
+        "android_client_info": {
+          "package_name": "com.green_palna_yojna_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABFwixuE37VgdXP9aJpxLnoUNMEcMORws"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
