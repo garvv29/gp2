@@ -843,12 +843,17 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                             longitude: longitude!,
                             remarks: remarksController.text,
                           );
+                          Map<String, dynamic>? aiResult;
+                          if (response['success'] == true) {
+                            // Call AI prediction API with the same image
+                            aiResult = await ApiService.predictPlantImageAI(imagePath!);
+                          }
                           setState(() {
                             isLoading = false;
                           });
                           if (response['success'] == true) {
                             Navigator.pop(context);
-                            _showUploadSuccessPopup(context, response['data']);
+                            _showUploadSuccessPopup(context, response['data'], aiResult);
                           } else {
                             setState(() {
                               errorMessage = response['message'] ?? 'Upload failed';
@@ -866,7 +871,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   }
 
   // Helper: Show upload success popup
-  void _showUploadSuccessPopup(BuildContext context, Map<String, dynamic> data) {
+  void _showUploadSuccessPopup(BuildContext context, Map<String, dynamic> data, [Map<String, dynamic>? aiResult]) {
     final photo = data['photo'];
     final updatedSchedule = data['updated_schedule'];
     final stats = data['tracking_stats'];
@@ -903,6 +908,26 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                   _buildSuccessDetailRow(Icons.comment, 'Remarks', photo['remarks'].toString()),
               ],
               Divider(),
+              if (aiResult != null) ...[
+                SizedBox(height: 8),
+                Text('AI Prediction:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
+                SizedBox(height: 6),
+                if (aiResult['success'] == true && aiResult['data'] != null) ...[
+                  if (aiResult['data']['predicted_class'] != null)
+                    _buildSuccessDetailRow(Icons.nature, 'पहचाना गया पेड़', aiResult['data']['predicted_class'].toString()),
+                  if (aiResult['data']['confidence'] != null)
+                    _buildSuccessDetailRow(Icons.percent, 'AI की विश्वसनीयता',
+                      (aiResult['data']['confidence'] is num)
+                        ? (aiResult['data']['confidence'] * 100).toStringAsFixed(2) + '%'
+                        : aiResult['data']['confidence'].toString()),
+                  ...aiResult['data'].entries.where((e) => e.key != 'predicted_class' && e.key != 'confidence').map((e) =>
+                    _buildSuccessDetailRow(Icons.info_outline, e.key.toString(), e.value.toString())
+                  ),
+                ] else ...[
+                  Text('AI prediction उपलब्ध नहीं: ' + (aiResult['message'] ?? 'Unknown error'), style: TextStyle(color: Colors.red)),
+                ],
+                Divider(),
+              ],
               if (updatedSchedule != null) ...[
                 _buildSuccessDetailRow(Icons.event, 'Schedule ID', updatedSchedule['schedule_id'].toString()),
                 _buildSuccessDetailRow(Icons.calendar_today, 'Week Number', updatedSchedule['week_number'].toString()),

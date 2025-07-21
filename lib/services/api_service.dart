@@ -761,6 +761,42 @@ class ApiService {
       return null;
     }
   }
+
+  /// Calls the AI prediction API with the given image file and returns the result.
+  static Future<Map<String, dynamic>> predictPlantImageAI(String imagePath) async {
+    final url = Uri.parse('http://165.22.208.62:4999/predict');
+    try {
+      final file = File(imagePath);
+      if (!await file.exists()) {
+        return {
+          'success': false,
+          'message': 'Image file not found for AI prediction.'
+        };
+      }
+      final request = http.MultipartRequest('POST', url);
+      request.files.add(await http.MultipartFile.fromPath('image', imagePath));
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        return {
+          'success': true,
+          'data': decoded
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'AI prediction failed with status: ${response.statusCode}',
+          'rawBody': response.body
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'AI prediction error: ${e.toString()}'
+      };
+    }
+  }
 }
 
 Future<LoginResponse> loginUser(String userId, String password, String loginType) async {
