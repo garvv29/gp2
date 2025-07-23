@@ -70,6 +70,9 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
   // For plant selection with quantity
   List<Map<String, dynamic>> _selectedPlantQuantities = [];
 
+  // New state variables for yes/no questions
+  String? _q1JananiSuraksha, _q2Ayushman, _q3PMMVY, _q4PMMVYAmount, _q5MahtariVandan, _q6ShramikCard, _q7NoniSuraksha;
+
   @override
   void initState() {
     super.initState();
@@ -402,6 +405,49 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
                     child: Image.file(_motherPhoto!, height: 120),
                   ),
                 SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 24, tablet: 32, desktop: 40)),
+
+                // --- NEW: Additional Yes/No Questions (bottom of form) ---
+                Divider(),
+                Text('अतिरिक्त जानकारी', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green[800])),
+                SizedBox(height: 12),
+                _buildYesNoQuestion(
+                  '1. जननी सुरक्षा योजना का लाभ दिया गया है?',
+                  _q1JananiSuraksha,
+                  (val) => setState(() => _q1JananiSuraksha = val),
+                  options: ['हाँ', 'प्रक्रियाधीन', 'नहीं'],
+                ),
+                _buildYesNoQuestion(
+                  '2. क्या प्रसव के लिये आयुष्मान कार्ड का उपयोग किया गया है?',
+                  _q2Ayushman,
+                  (val) => setState(() => _q2Ayushman = val),
+                ),
+                _buildYesNoQuestion(
+                  '3. प्रधानमंत्री मातृ वंदना योजना का लाभ मिला है?',
+                  _q3PMMVY,
+                  (val) => setState(() => _q3PMMVY = val),
+                ),
+                _buildYesNoQuestion(
+                  '4. प्रधानमंत्री मातृ वंदना योजना की राशि 3000/- प्राप्त हुई है?',
+                  _q4PMMVYAmount,
+                  (val) => setState(() => _q4PMMVYAmount = val),
+                ),
+                _buildYesNoQuestion(
+                  '5. क्या महतारी वंदन योजना का लाभ (प्रतिमाह 1000/- के मान से) मिल रहा है?',
+                  _q5MahtariVandan,
+                  (val) => setState(() => _q5MahtariVandan = val),
+                ),
+                _buildYesNoQuestion(
+                  '6. क्या श्रमिक कार्ड बना हुआ है?',
+                  _q6ShramikCard,
+                  (val) => setState(() => _q6ShramikCard = val),
+                ),
+                _buildYesNoQuestion(
+                  '7. क्या लाभार्थी नोनो सुरक्षा योजना योजना के लिये पात्र है?',
+                  _q7NoniSuraksha,
+                  (val) => setState(() => _q7NoniSuraksha = val),
+                ),
+                Divider(),
+                // --- END NEW ---
                 
                 // Action Buttons
                 _buildActionButtons(l10n),
@@ -788,6 +834,14 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
       _mantraVandana = null;
       _ayushmanCardAmount = null;
       _selectedPlantQuantities.clear();
+      // Reset new yes/no questions
+      _q1JananiSuraksha = null;
+      _q2Ayushman = null;
+      _q3PMMVY = null;
+      _q4PMMVYAmount = null;
+      _q5MahtariVandan = null;
+      _q6ShramikCard = null;
+      _q7NoniSuraksha = null;
     });
   }
 
@@ -908,6 +962,14 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
         mantraVandana: _mantraVandana ?? '',
         deliveryDocumentPath: _certificatePhoto?.path,
         motherPhotoPath: _motherPhoto?.path,
+        // Pass new yes/no questions
+        jananiSurakshaYojana: _q1JananiSuraksha,
+        ayushmanCardUsed: _q2Ayushman,
+        pmMatruVandanaYojana: _q3PMMVY,
+        pmMatruVandanaYojanaAmount: _q4PMMVYAmount,
+        mahtariVandanYojana: _q5MahtariVandan,
+        shramikCard: _q6ShramikCard,
+        noniSurakshaYojana: _q7NoniSuraksha,
       );
 
       setState(() => _isLoading = false);
@@ -1053,4 +1115,25 @@ extension LocalizationExtension on AppLocalizations {
       default: return key;
     }
   }
+}
+
+// Helper widget for yes/no questions
+Widget _buildYesNoQuestion(String question, String? groupValue, ValueChanged<String?> onChanged, {List<String> options = const ['हाँ', 'नहीं']}) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6.0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(question, style: TextStyle(fontWeight: FontWeight.w500)),
+        Row(
+          children: options.map((opt) => Row(
+            children: [
+              Radio<String>(value: opt, groupValue: groupValue, onChanged: onChanged),
+              Text(opt),
+            ],
+          )).toList(),
+        ),
+      ],
+    ),
+  );
 }

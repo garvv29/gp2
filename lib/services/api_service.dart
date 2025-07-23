@@ -189,11 +189,19 @@ class ApiService {
     required String mantraVandana,
     String? deliveryDocumentPath,
     String? motherPhotoPath,
+    // New yes/no questions
+    String? jananiSurakshaYojana,
+    String? ayushmanCardUsed,
+    String? pmMatruVandanaYojana,
+    String? pmMatruVandanaYojanaAmount,
+    String? mahtariVandanYojana,
+    String? shramikCard,
+    String? noniSurakshaYojana,
   }) async {
     final token = await _getToken();
     final url = Uri.parse('${AppConstants.baseUrl}/hospital/new-mother-registration');
     print('[API REQUEST] POST: $url');
-    print('[API REQUEST BODY] {mother_name: $motherName, father_husband_name: $fatherHusbandName, child_gender: $childGender, mobile_number: $mobileNumber, delivery_date: $deliveryDate, delivery_time: $deliveryTime, delivery_type: $deliveryType, blood_group: $bloodGroup, child_order: $childOrder, weight_at_birth: $weightAtBirth, district_lgd_code: $districtLgdCode, block_lgd_code: $blockLgdCode, plant_quantity: $plantQuantity, birth_certificate: $birthCertificate, pmmvy: $pmmvy, plants: $plants, is_shramik_card: $isShramikCard, is_used_ayushman_card: $isUsedAyushmanCard, ayushman_card_amount: $ayushmanCardAmount, is_benefit_nsy: $isBenefitNsy, is_nsy_form: $isNsyForm, mantra_vandana: $mantraVandana, delivery_document: $deliveryDocumentPath, mother_photo: $motherPhotoPath}');
+    print('[API REQUEST BODY] {mother_name: $motherName, ...}');
     final response = await http.post(
       url,
       headers: {
@@ -225,6 +233,14 @@ class ApiService {
         'mantra_vandana': mantraVandana,
         'delivery_document': deliveryDocumentPath,
         'mother_photo': motherPhotoPath,
+        // New yes/no questions
+        'jananiSurakshaYojana': jananiSurakshaYojana,
+        'ayushmanCardUsed': ayushmanCardUsed,
+        'pmMatruVandanaYojana': pmMatruVandanaYojana,
+        'pmMatruVandanaYojanaAmount': pmMatruVandanaYojanaAmount,
+        'mahtariVandanYojana': mahtariVandanYojana,
+        'shramikCard': shramikCard,
+        'noniSurakshaYojana': noniSurakshaYojana,
       }),
     );
     print('[API RESPONSE] ${response.statusCode}: ${response.body}');
