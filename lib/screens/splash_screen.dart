@@ -450,7 +450,7 @@ class _SplashScreenState extends State<SplashScreen>
                     'District Administration Raipur',
                     style: TextStyle(
                       fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 15, tablet: 19, desktop: 24),
-                      color: Colors.black87,
+                      color: Colors.white,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.2,
                     ),

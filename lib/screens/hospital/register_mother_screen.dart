@@ -407,48 +407,48 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
                 SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 24, tablet: 32, desktop: 40)),
 
                 // --- NEW: Additional Yes/No Questions (bottom of form) ---
-                Divider(),
-                Text('अतिरिक्त जानकारी', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: Colors.green[800])),
-                SizedBox(height: 12),
-                _buildYesNoQuestion(
-                  '1. जननी सुरक्षा योजना का लाभ दिया गया है?',
-                  _q1JananiSuraksha,
-                  (val) => setState(() => _q1JananiSuraksha = val),
-                  options: ['हाँ', 'प्रक्रियाधीन', 'नहीं'],
-                ),
-                _buildYesNoQuestion(
-                  '2. क्या प्रसव के लिये आयुष्मान कार्ड का उपयोग किया गया है?',
-                  _q2Ayushman,
-                  (val) => setState(() => _q2Ayushman = val),
-                ),
-                _buildYesNoQuestion(
-                  '3. प्रधानमंत्री मातृ वंदना योजना का लाभ मिला है?',
-                  _q3PMMVY,
-                  (val) => setState(() => _q3PMMVY = val),
-                ),
-                _buildYesNoQuestion(
-                  '4. प्रधानमंत्री मातृ वंदना योजना की राशि 3000/- प्राप्त हुई है?',
-                  _q4PMMVYAmount,
-                  (val) => setState(() => _q4PMMVYAmount = val),
-                ),
-                _buildYesNoQuestion(
-                  '5. क्या महतारी वंदन योजना का लाभ (प्रतिमाह 1000/- के मान से) मिल रहा है?',
-                  _q5MahtariVandan,
-                  (val) => setState(() => _q5MahtariVandan = val),
-                ),
-                _buildYesNoQuestion(
-                  '6. क्या श्रमिक कार्ड बना हुआ है?',
-                  _q6ShramikCard,
-                  (val) => setState(() => _q6ShramikCard = val),
-                ),
-                _buildYesNoQuestion(
-                  '7. क्या लाभार्थी नोनो सुरक्षा योजना योजना के लिये पात्र है?',
-                  _q7NoniSuraksha,
-                  (val) => setState(() => _q7NoniSuraksha = val),
-                ),
+                
                 Divider(),
                 // --- END NEW ---
-                
+                // _buildYesNoQuestion(
+                //   '1. जननी सुरक्षा योजना का लाभ दिया गया है?',
+                //   _q1JananiSuraksha,
+                //   (val) => setState(() => _q1JananiSuraksha = val),
+                //   options: ['हाँ', 'प्रक्रियाधीन', 'नहीं'],
+                // ),
+                // _buildYesNoQuestion(
+                //   '2. क्या प्रसव के लिये आयुष्मान कार्ड का उपयोग किया गया है?',
+                //   _q2Ayushman,
+                //   (val) => setState(() => _q2Ayushman = val),
+                // ),
+                // _buildYesNoQuestion(
+                //   '3. प्रधानमंत्री मातृ वंदना योजना का लाभ मिला है?',
+                //   _q3PMMVY,
+                //   (val) => setState(() => _q3PMMVY = val),
+                // ),
+                // _buildYesNoQuestion(
+                //   '4. प्रधानमंत्री मातृ वंदना योजना की राशि 3000/- प्राप्त हुई है?',
+                //   _q4PMMVYAmount,
+                //   (val) => setState(() => _q4PMMVYAmount = val),
+                // ),
+                // _buildYesNoQuestion(
+                //   '5. क्या महतारी वंदन योजना का लाभ (प्रतिमाह 1000/- के मान से) मिल रहा है?',
+                //   _q5MahtariVandan,
+                //   (val) => setState(() => _q5MahtariVandan = val),
+                // ),
+                // _buildYesNoQuestion(
+                //   '6. क्या श्रमिक कार्ड बना हुआ है?',
+                //   _q6ShramikCard,
+                //   (val) => setState(() => _q6ShramikCard = val),
+                // ),
+                // _buildYesNoQuestion(
+                //   '7. क्या लाभार्थी नोनो सुरक्षा योजना योजना के लिये पात्र है?',
+                //   _q7NoniSuraksha,
+                //   (val) => setState(() => _q7NoniSuraksha = val),
+                // ),
+                // Divider(),
+                // --- END NEW ---
+
                 // Action Buttons
                 _buildActionButtons(l10n),
                 SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 16, tablet: 24, desktop: 32)),

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -780,38 +781,170 @@ class ApiService {
 
   /// Calls the AI prediction API with the given image file and returns the result.
   static Future<Map<String, dynamic>> predictPlantImageAI(String imagePath) async {
-    final url = Uri.parse('http://165.22.208.62:4999/predict');
-    try {
-      final file = File(imagePath);
-      if (!await file.exists()) {
-        return {
-          'success': false,
-          'message': 'Image file not found for AI prediction.'
-        };
+    print('[AI API] Starting prediction for: $imagePath');
+    const url = 'http://165.22.208.62:4999/predict';
+    const maxRetries = 2;
+    
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      print('[AI API] Attempt $attempt of $maxRetries');
+      
+      try {
+        final file = File(imagePath);
+        if (!await file.exists()) {
+          print('[AI API] Error: Image file not found');
+          return {
+            'success': false,
+            'message': 'Image file not found for AI prediction.'
+          };
+        }
+
+        final fileSize = await file.length();
+        print('[AI API] File size: ${fileSize} bytes');
+        
+        if (fileSize > 10 * 1024 * 1024) { // 10MB limit
+          print('[AI API] Error: File too large');
+          return {
+            'success': false,
+            'message': 'Image file too large. Please select a smaller image.'
+          };
+        }
+
+        print('[AI API] Creating multipart request to: $url');
+        final request = http.MultipartRequest('POST', Uri.parse(url));
+        
+        // Add proper headers
+        request.headers.addAll({
+          'Accept': 'application/json',
+          'User-Agent': 'GreenPalna-Flutter-App/1.0',
+        });
+        
+        // Auto-detect content type based on file extension
+        MediaType? contentType;
+        final extension = imagePath.toLowerCase().split('.').last;
+        switch (extension) {
+          case 'jpg':
+          case 'jpeg':
+            contentType = MediaType('image', 'jpeg');
+            break;
+          case 'png':
+            contentType = MediaType('image', 'png');
+            break;
+          case 'webp':
+            contentType = MediaType('image', 'webp');
+            break;
+          default:
+            contentType = MediaType('image', 'jpeg'); // Default fallback
+        }
+        
+        print('[AI API] Detected file extension: $extension, Content-Type: ${contentType.toString()}');
+        
+        request.files.add(await http.MultipartFile.fromPath(
+          'image', 
+          imagePath,
+          contentType: contentType,
+        ));
+
+        print('[AI API] Sending request with 20 second timeout...');
+        final streamedResponse = await request.send().timeout(
+          Duration(seconds: 20),
+          onTimeout: () {
+            print('[AI API] Request timed out after 20 seconds');
+            throw TimeoutException('AI server response timeout', Duration(seconds: 20));
+          },
+        );
+
+        final response = await http.Response.fromStream(streamedResponse);
+        print('[AI API] Response received - Status: ${response.statusCode}');
+
+        if (response.statusCode == 200) {
+          try {
+            final decoded = jsonDecode(response.body);
+            print('[AI API] Successfully parsed JSON response');
+            
+            // Validate response structure
+            if (decoded is Map && decoded.containsKey('predicted_class')) {
+              print('[AI API] Valid prediction received: ${decoded['predicted_class']}');
+              return {
+                'success': true,
+                'data': decoded
+              };
+            } else {
+              print('[AI API] Invalid response format: $decoded');
+              return {
+                'success': false,
+                'message': 'AI server returned invalid response format'
+              };
+            }
+          } catch (jsonError) {
+            print('[AI API] JSON parsing error: $jsonError');
+            return {
+              'success': false,
+              'message': 'Failed to parse AI server response: $jsonError'
+            };
+          }
+        } else if (response.statusCode == 500) {
+          print('[AI API] Server error 500 on attempt $attempt');
+          if (attempt == maxRetries) {
+            return {
+              'success': false,
+              'message': 'AI server is currently down (500 error). Please try again later.'
+            };
+          }
+          // Wait before retry
+          await Future.delayed(Duration(seconds: 2));
+          continue;
+        } else if (response.statusCode == 404) {
+          print('[AI API] 404 error - AI endpoint not found');
+          return {
+            'success': false,
+            'message': 'AI service endpoint not available (404 error)'
+          };
+        } else {
+          print('[AI API] HTTP error ${response.statusCode}: ${response.body}');
+          return {
+            'success': false,
+            'message': 'AI prediction failed with status: ${response.statusCode}',
+            'rawBody': response.body
+          };
+        }
+      } on SocketException catch (e) {
+        print('[AI API] Network error on attempt $attempt: $e');
+        if (attempt == maxRetries) {
+          return {
+            'success': false,
+            'message': 'Network connection error. Please check your internet connection.'
+          };
+        }
+        await Future.delayed(Duration(seconds: 2));
+        continue;
+      } on TimeoutException catch (e) {
+        print('[AI API] Timeout error on attempt $attempt: $e');
+        if (attempt == maxRetries) {
+          return {
+            'success': false,
+            'message': 'AI server response timeout. Please check your internet connection and try again.'
+          };
+        }
+        await Future.delayed(Duration(seconds: 2));
+        continue;
+      } catch (e) {
+        print('[AI API] Unexpected error on attempt $attempt: ${e.runtimeType} - $e');
+        if (attempt == maxRetries) {
+          return {
+            'success': false,
+            'message': 'AI prediction error: ${e.toString()}'
+          };
+        }
+        await Future.delayed(Duration(seconds: 2));
+        continue;
       }
-      final request = http.MultipartRequest('POST', url);
-      request.files.add(await http.MultipartFile.fromPath('image', imagePath));
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-      if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body);
-        return {
-          'success': true,
-          'data': decoded
-        };
-      } else {
-        return {
-          'success': false,
-          'message': 'AI prediction failed with status: ${response.statusCode}',
-          'rawBody': response.body
-        };
-      }
-    } catch (e) {
-      return {
-        'success': false,
-        'message': 'AI prediction error: ${e.toString()}'
-      };
     }
+    
+    // This should never be reached, but just in case
+    return {
+      'success': false,
+      'message': 'AI prediction failed after multiple attempts'
+    };
   }
 }
 

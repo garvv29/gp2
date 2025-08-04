@@ -93,25 +93,7 @@ class PlantCurrentStatusCard extends StatelessWidget {
                 ),
               ],
             ),
-            if (nextDue != null) ...[
-              SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 12, tablet: 16, desktop: 20)),
-              Container(
-                padding: ResponsiveUtils.getResponsiveEdgeInsets(context, mobile: 8, tablet: 12, desktop: 16),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: ResponsiveUtils.getResponsiveBorderRadius(context),
-                  border: Border.all(color: statusColor.withOpacity(0.3)),
-                ),
-                child: Text(
-                  'Next Upload',
-                  style: TextStyle(
-                    color: statusColor,
-                    fontWeight: FontWeight.w500,
-                    fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 14, tablet: 16, desktop: 18),
-                  ),
-                ),
-              ),
-            ],
+            // Removed Next Upload text
           ],
         ),
       ),

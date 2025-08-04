@@ -12,6 +12,7 @@ import 'plant_detail_widgets/overall_progress.dart';
 import 'plant_detail_widgets/current_status_card.dart';
 import 'plant_detail_widgets/care_instructions.dart';
 import '../../services/api_service.dart';
+import 'plant_detail_widgets/monitoring_period.dart';
 
 class PlantDetailScreen extends StatefulWidget {
   final MotherPlantDetailData? plantDetailData;
@@ -416,120 +417,40 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   }
 
   Widget _buildWeekCard(WeekDetail week, AppLocalizations l10n, int assignmentId, int monthNumber) {
-    Color statusColor;
-    IconData statusIcon;
-    String statusText;
-    
-    switch (week.uploadStatus.toLowerCase()) {
-      case 'completed':
-        statusColor = AppColors.success;
-        statusIcon = Icons.check_circle;
-        statusText = 'पूर्ण';
-        break;
-      case 'pending':
-        statusColor = AppColors.warning;
-        statusIcon = Icons.schedule;
-        statusText = 'लंबित';
-        break;
-      case 'overdue':
-        statusColor = AppColors.error;
-        statusIcon = Icons.error;
-        statusText = 'समय से अधिक';
-        break;
-      default:
-        statusColor = AppColors.textSecondary;
-        statusIcon = Icons.help;
-        statusText = week.uploadStatus;
+    final trackingHistory = TrackingHistory(
+      scheduleId: week.scheduleId,
+      weekNumber: week.weekNumber,
+      monthNumber: monthNumber,
+      dueDate: week.dueDate,
+      uploadStatus: week.uploadStatus.toLowerCase(),
+      completedDate: week.completedDate,
+      remarks: week.remarks ?? '',
+      photo: week.photo
+    );
+
+    // If photo exists, make card clickable to show photo details
+    if (week.uploadStatus.toLowerCase() == 'uploaded' && week.photo != null) {
+      return GestureDetector(
+        onTap: () => _showPhotoDetails(week, l10n),
+        child: PlantMonitoringPeriodCard(
+          context: context,
+          l10n: l10n,
+          trackingHistory: trackingHistory,
+          onUploadTap: (history, l10n) {
+            _showUploadPhotoPopup(context, assignmentId, history.weekNumber, monthNumber);
+          },
+        ),
+      );
     }
 
-    bool isCompleted = week.uploadStatus.toLowerCase() == 'completed';
-
-    // Calculate upload window
-    DateTime dueDate = DateTime.tryParse(week.dueDate) ?? DateTime.now();
-    DateTime now = DateTime.now();
-    DateTime earliest = dueDate.subtract(Duration(days: 3));
-    DateTime latest = dueDate;
-    bool canUpload = !isCompleted && now.isAfter(earliest) && (now.isBefore(latest) || now.isAtSameMomentAs(latest));
-
-    return Card(
-      margin: EdgeInsets.only(bottom: 8),
-      elevation: 2,
-      child: InkWell(
-        onTap: () {
-          if (isCompleted && week.photo != null) {
-            _showPhotoDetails(week, l10n);
-          } else if (canUpload) {
-            _showUploadPhotoPopup(context, assignmentId, week.weekNumber, monthNumber);
-          }
-        },
-        borderRadius: BorderRadius.circular(8),
-        splashColor: AppColors.primary.withOpacity(0.1),
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Row(
-            children: [
-              CircleAvatar(
-                backgroundColor: statusColor.withOpacity(0.2),
-                child: Icon(statusIcon, color: statusColor, size: 20),
-              ),
-              SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      week.weekTitle,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 14, tablet: 16, desktop: 18),
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text('Due: ${week.dueDate}', 
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                    Text('Status: $statusText', 
-                      style: TextStyle(
-                        color: statusColor, 
-                        fontWeight: FontWeight.w500,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (canUpload)
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.primary,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.camera_alt, size: 14, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        'फोटो लें',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else if (isCompleted)
-                Icon(Icons.check_circle, color: AppColors.success, size: 24),
-            ],
-          ),
-        ),
-      ),
+    // Otherwise show standard monitoring card with upload functionality
+    return PlantMonitoringPeriodCard(
+      context: context,
+      l10n: l10n,
+      trackingHistory: trackingHistory,
+      onUploadTap: (history, l10n) {
+        _showUploadPhotoPopup(context, assignmentId, history.weekNumber, monthNumber);
+      },
     );
   }
 
@@ -600,7 +521,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
 
   Widget _buildDefaultUploadCard(MonthwiseDetail monthDetail, int monthNumber, AppLocalizations l10n) {
     return Card(
-      margin: EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),
       elevation: 3,
       shadowColor: AppColors.primary.withOpacity(0.2),
       child: Container(
@@ -613,68 +534,122 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    backgroundColor: AppColors.primary.withOpacity(0.2),
-                    child: Icon(Icons.camera_alt, color: AppColors.primary, size: 20),
-                  ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          monthDetail.title,
-                          style: TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 16,
-                            color: AppColors.text,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          'कोई शेड्यूल उपलब्ध नहीं',
-                          style: TextStyle(
-                            color: AppColors.primary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 12),
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.info.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.info.withOpacity(0.3)),
+              Text(
+                monthDetail.title,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 16, tablet: 18, desktop: 20),
                 ),
-                child: Row(
-                  children: [
-                    Icon(Icons.schedule, color: AppColors.info, size: 16),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'इस महीने के लिए अभी तक कोई शेड्यूल नहीं बनाया गया है',
-                        style: TextStyle(
-                          color: AppColors.info,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
+              ),
+              SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),
+              Text(
+                monthDetail.description,
+                style: TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 12, tablet: 14, desktop: 16),
                 ),
               ),
             ],
           ),
         ),
-      )
+      ),
     );
+  }
+
+  // Helper method to check if AI predicted plant matches expected plant
+  bool _isCorrectPlantDetected(String predictedClass, String expectedPlant) {
+    final predicted = predictedClass.toLowerCase().trim();
+    final expected = expectedPlant.toLowerCase().trim();
+    
+    print('[PLANT DETECTION] Predicted: "$predicted"');
+    print('[PLANT DETECTION] Expected: "$expected"');
+    
+    // Create comprehensive mapping for all plants with their AI detection keywords
+    final plantKeywords = {
+      // Mango (आम) - Only mango specific keywords
+      'mango': ['mango', 'mangifera'],
+      'आम': ['mango', 'aam', 'आम', 'mangifera'],
+      'aam': ['mango', 'aam', 'आम', 'mangifera'],
+      
+      // Guava (अमरूद) - Only guava specific keywords  
+      'guava': ['guava', 'psidium'],
+      'अमरूद': ['guava', 'amrud', 'अमरूद', 'psidium'],
+      'amrud': ['guava', 'amrud', 'अमरूद', 'psidium'],
+      'aamrud': ['guava', 'amrud', 'अमरूद', 'psidium'], // Fix for aamrud
+      
+      // Lemon (नींबू)
+      'lemon': ['lemon', 'citrus', 'lime'],
+      'नींबू': ['lemon', 'nimbu', 'नींबू', 'citrus', 'lime'],
+      'nimbu': ['lemon', 'nimbu', 'नींबू', 'citrus', 'lime'],
+      
+      // Pomegranate (अनार)
+      'pomegranate': ['pomegranate', 'punica'],
+      'अनार': ['pomegranate', 'anar', 'अनार', 'punica'],
+      'anar': ['pomegranate', 'anar', 'अनार', 'punica'],
+      
+      // Papaya (पपीता)
+      'papaya': ['papaya', 'carica'],
+      'पपীता': ['papaya', 'papita', 'पपीता', 'carica'],
+      'papita': ['papaya', 'papita', 'पपीता', 'carica'],
+      
+      // Moringa (मुनगा/सहजन)
+      'moringa': ['moringa', 'drumstick'],
+      'munga': ['moringa', 'munga', 'munaga', 'sahjan', 'मुनगा', 'सहजन', 'drumstick'],
+      'मुनगा': ['moringa', 'munga', 'munaga', 'sahjan', 'मुनगा', 'सहजन', 'drumstick'],
+      'सहजन': ['moringa', 'munga', 'munaga', 'sahjan', 'मुनगा', 'सहजन', 'drumstick'],
+      
+      // Amla (आंवला)
+      'amla': ['amla', 'gooseberry', 'emblica', 'amalaki'],
+      'आंवला': ['amla', 'aavla', 'आंवला', 'gooseberry', 'emblica', 'amalaki'],
+      'aavla': ['amla', 'aavla', 'आंवला', 'gooseberry', 'emblica', 'amalaki'],
+      'gooseberry': ['amla', 'aavla', 'आंवला', 'gooseberry', 'emblica', 'amalaki'],
+    };
+    
+    // Find the EXACT expected plant type by checking for complete word matches
+    List<String> expectedPlantNames = [];
+    for (String plantKey in plantKeywords.keys) {
+      // Use exact matching to avoid partial matches like "aam" in "aamrud"
+      final plantKeyLower = plantKey.toLowerCase();
+      if (expected == plantKeyLower || 
+          expected.split(' ').contains(plantKeyLower) ||
+          expected.split(' ').any((word) => word == plantKeyLower)) {
+        expectedPlantNames.add(plantKey);
+      }
+    }
+    
+    print('[PLANT DETECTION] Detected expected plant names: $expectedPlantNames');
+    
+    if (expectedPlantNames.isNotEmpty) {
+      // Check if predicted class matches any of the expected plant keywords
+      for (String plantName in expectedPlantNames) {
+        List<String>? keywords = plantKeywords[plantName];
+        if (keywords != null) {
+          bool hasMatch = keywords.any((keyword) => 
+            predicted == keyword.toLowerCase() ||
+            predicted.contains(keyword.toLowerCase())
+          );
+          if (hasMatch) {
+            print('[PLANT DETECTION] Match found for $plantName with keywords: $keywords');
+            return true;
+          }
+        }
+      }
+      print('[PLANT DETECTION] No direct match found in expected plant keywords');
+    }
+    
+    // Enhanced fallback: Only match if both predicted and expected contain the same plant keywords
+    for (String plantKey in plantKeywords.keys) {
+      List<String> keywords = plantKeywords[plantKey]!;
+      bool predictedMatches = keywords.any((keyword) => predicted.contains(keyword.toLowerCase()));
+      bool expectedMatches = keywords.any((keyword) => expected.contains(keyword.toLowerCase()));
+      
+      if (predictedMatches && expectedMatches) {
+        print('[PLANT DETECTION] Fallback match found for plant type: $plantKey');
+        return true;
+      }
+    }
+    
+    print('[PLANT DETECTION] No match found - different plant types detected');
+    return false;
   }
 
   // Helper: Show upload photo popup for a week
@@ -734,7 +709,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (errorMessage != null)
+                    if (errorMessage != null && !errorMessage!.contains('AI') && !errorMessage!.contains('500'))
                       Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
                         child: Text(errorMessage!, style: TextStyle(color: Colors.red)),
@@ -776,7 +751,12 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                                       icon: Icon(Icons.camera_alt),
                                       label: Text('कैमरा से फोटो लें'),
                                       onPressed: () async {
-                                        final XFile? photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+                                        final XFile? photo = await _picker.pickImage(
+                                          source: ImageSource.camera, 
+                                          imageQuality: 70,
+                                          maxWidth: 1024,
+                                          maxHeight: 1024,
+                                        );
                                         if (photo != null) {
                                           setState(() {
                                             imagePath = photo.path;
@@ -789,7 +769,12 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                                       icon: Icon(Icons.photo_library),
                                       label: Text('गैलरी से फोटो चुनें'),
                                       onPressed: () async {
-                                        final XFile? photo = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+                                        final XFile? photo = await _picker.pickImage(
+                                          source: ImageSource.gallery, 
+                                          imageQuality: 70,
+                                          maxWidth: 1024,
+                                          maxHeight: 1024,
+                                        );
                                         if (photo != null) {
                                           setState(() {
                                             imagePath = photo.path;
@@ -836,6 +821,120 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                             isLoading = true;
                             errorMessage = null;
                           });
+
+                          // Enhanced AI validation with proper error handling
+                          Map<String, dynamic> aiResult = {'success': false}; // Default to failed
+                          bool needsConfirmation = false;
+                          String confirmationMessage = '';
+                          
+                          // Get current plant info for validation
+                          final currentPlantName = _plantDetailData!.assignment.plant.name;
+                          final currentPlantLocalName = _plantDetailData!.assignment.plant.localName;
+                          final plantDisplayName = currentPlantLocalName.isNotEmpty ? currentPlantLocalName : currentPlantName;
+                          
+                          print('[AI VALIDATION] Starting validation for: $plantDisplayName');
+                          print('[AI VALIDATION] Plant Name: $currentPlantName');
+                          print('[AI VALIDATION] Plant Local Name: $currentPlantLocalName');
+                          
+                          try {
+                            // Try AI validation
+                            aiResult = await ApiService.predictPlantImageAI(imagePath!);
+                            print('[AI VALIDATION] API Result: $aiResult');
+                            
+                            if (aiResult['success'] == true && aiResult['data'] != null) {
+                              // AI successful - check if predicted plant matches current plant
+                              final predictedClass = (aiResult['data']['predicted_class']?.toString() ?? '').toLowerCase();
+                              final expectedPlant = '$currentPlantName $currentPlantLocalName'.toLowerCase();
+                              
+                              print('[AI VALIDATION] Predicted Class: "$predictedClass"');
+                              print('[AI VALIDATION] Expected Plant: "$expectedPlant"');
+                              
+                              bool isCorrectPlant = _isCorrectPlantDetected(predictedClass, expectedPlant);
+                              print('[AI VALIDATION] Is Correct Plant: $isCorrectPlant');
+                              
+                              if (!isCorrectPlant) {
+                                // Wrong plant detected by working AI
+                                needsConfirmation = true;
+                                confirmationMessage = 'AI ने इस फोटो को "$predictedClass" बताया है, लेकिन आप $plantDisplayName upload कर रहे हैं।';
+                              }
+                              // If correct plant detected, proceed directly without confirmation
+                            } else {
+                              // AI failed - need confirmation
+                              needsConfirmation = true;
+                              confirmationMessage = 'AI से connect नहीं हो पाया।';
+                              print('[AI VALIDATION] AI failed: ${aiResult['message']}');
+                            }
+                          } catch (e) {
+                            // Network/connection errors - need confirmation
+                            needsConfirmation = true;
+                            confirmationMessage = 'AI से connect नहीं हो पाया।';
+                            print('[AI VALIDATION] Exception: $e');
+                            aiResult = {
+                              'success': false,
+                              'message': 'AI validation error: $e'
+                            };
+                          }
+                          
+                          print('[AI VALIDATION] Needs Confirmation: $needsConfirmation');
+                          print('[AI VALIDATION] Confirmation Message: $confirmationMessage');
+                          
+                          // Show confirmation dialog only if needed
+                          if (needsConfirmation) {
+                            setState(() {
+                              isLoading = false;
+                            });
+                            
+                            bool shouldProceed = await showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (context) => AlertDialog(
+                                title: Text('चेतावनी!'),
+                                content: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.warning, color: Colors.orange, size: 48),
+                                    SizedBox(height: 16),
+                                    Text(confirmationMessage),
+                                    SizedBox(height: 12),
+                                    Container(
+                                      padding: EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange[50],
+                                        border: Border.all(color: Colors.orange),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        'क्या आप sure हैं कि यह $plantDisplayName के पौधे की photo है?',
+                                        style: TextStyle(fontWeight: FontWeight.bold),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: Text('नई फोटो लें'),
+                                  ),
+                                  ElevatedButton(
+                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: Text('हाँ, यह $plantDisplayName का पौधा है'),
+                                  ),
+                                ],
+                              ),
+                            );
+
+                            if (!shouldProceed) {
+                              return;
+                            }
+                            
+                            setState(() {
+                              isLoading = true;
+                            });
+                          }
+
+                          // Proceed with upload
                           final response = await ApiService.uploadMotherPlantAssignment(
                             assignmentId: assignmentId,
                             photoPath: imagePath!,
@@ -843,20 +942,17 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                             longitude: longitude!,
                             remarks: remarksController.text,
                           );
-                          Map<String, dynamic>? aiResult;
-                          if (response['success'] == true) {
-                            // Call AI prediction API with the same image
-                            aiResult = await ApiService.predictPlantImageAI(imagePath!);
-                          }
+
                           setState(() {
                             isLoading = false;
                           });
-                          if (response['success'] == true) {
+
+                          if (response['success']) {
                             Navigator.pop(context);
                             _showUploadSuccessPopup(context, response['data'], aiResult);
                           } else {
                             setState(() {
-                              errorMessage = response['message'] ?? 'Upload failed';
+                              errorMessage = response['message'] ?? 'अपलोड विफल रहा';
                             });
                           }
                         },
@@ -908,25 +1004,62 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                   _buildSuccessDetailRow(Icons.comment, 'Remarks', photo['remarks'].toString()),
               ],
               Divider(),
-              if (aiResult != null) ...[
-                SizedBox(height: 8),
-                Text('AI Prediction:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
-                SizedBox(height: 6),
-                if (aiResult['success'] == true && aiResult['data'] != null) ...[
-                  if (aiResult['data']['predicted_class'] != null)
-                    _buildSuccessDetailRow(Icons.nature, 'पहचाना गया पेड़', aiResult['data']['predicted_class'].toString()),
-                  if (aiResult['data']['confidence'] != null)
-                    _buildSuccessDetailRow(Icons.percent, 'AI की विश्वसनीयता',
-                      (aiResult['data']['confidence'] is num)
-                        ? (aiResult['data']['confidence'] * 100).toStringAsFixed(2) + '%'
-                        : aiResult['data']['confidence'].toString()),
-                  ...aiResult['data'].entries.where((e) => e.key != 'predicted_class' && e.key != 'confidence').map((e) =>
-                    _buildSuccessDetailRow(Icons.info_outline, e.key.toString(), e.value.toString())
-                  ),
-                ] else ...[
-                  Text('AI prediction उपलब्ध नहीं: ' + (aiResult['message'] ?? 'Unknown error'), style: TextStyle(color: Colors.red)),
-                ],
-                Divider(),
+              // Show AI results only if AI correctly predicted the plant
+              if (aiResult != null && aiResult['success'] == true && aiResult['data'] != null) ...[
+                // Check if AI prediction was correct
+                Builder(
+                  builder: (context) {
+                    final predictedClass = (aiResult['data']['predicted_class']?.toString() ?? '').toLowerCase();
+                    final currentPlantName = _plantDetailData!.assignment.plant.name;
+                    final currentPlantLocalName = _plantDetailData!.assignment.plant.localName;
+                    final expectedPlant = '$currentPlantName $currentPlantLocalName'.toLowerCase();
+                    
+                    bool isCorrectPrediction = _isCorrectPlantDetected(predictedClass, expectedPlant);
+                    
+                    if (isCorrectPrediction) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(Icons.check_circle, color: Colors.green, size: 20),
+                              SizedBox(width: 6),
+                              Text('AI Verification:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green)),
+                            ],
+                          ),
+                          SizedBox(height: 6),
+                          _buildSuccessDetailRow(Icons.nature, 'पहचाना गया पेड़', aiResult['data']['predicted_class'].toString()),
+                          if (aiResult['data']['confidence'] != null)
+                            _buildSuccessDetailRow(Icons.percent, 'AI की विश्वसनीयता',
+                              (aiResult['data']['confidence'] is num)
+                                ? (aiResult['data']['confidence'] * 100).toStringAsFixed(2) + '%'
+                                : aiResult['data']['confidence'].toString()),
+                          Container(
+                            margin: EdgeInsets.only(top: 6),
+                            padding: EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.green[50],
+                              border: Border.all(color: Colors.green),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.verified, color: Colors.green, size: 16),
+                                SizedBox(width: 6),
+                                Text('सही पौधा verified!', style: TextStyle(color: Colors.green[800], fontWeight: FontWeight.w500)),
+                              ],
+                            ),
+                          ),
+                          Divider(),
+                        ],
+                      );
+                    } else {
+                      // Don't show AI results if prediction was incorrect
+                      return SizedBox.shrink();
+                    }
+                  },
+                ),
               ],
               if (updatedSchedule != null) ...[
                 _buildSuccessDetailRow(Icons.event, 'Schedule ID', updatedSchedule['schedule_id'].toString()),

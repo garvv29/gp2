@@ -129,23 +129,6 @@ class _MotherDashboardState extends State<MotherDashboard> {
             
             // Care tips card
             MotherDashboardCareTipsCard(context: context, l10n: l10n),
-            // Certificate download button
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: Icon(Icons.file_download, color: Colors.white),
-                  label: Text('माँ का प्रमाणपत्र डाउनलोड करें', style: TextStyle(color: Colors.white)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                  onPressed: _downloadMotherCertificate,
-                ),
-              ),
-            ),
           ],
         ),
       ),
@@ -480,13 +463,6 @@ class _MotherDashboardState extends State<MotherDashboard> {
           ),
         ],
       ),
-    );
-  }
-
-  void _downloadMotherCertificate() async {
-    // TODO: Implement actual download logic (API call, file save, etc.)
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('प्रमाणपत्र डाउनलोड करने की सुविधा जल्द आ रही है!')),
     );
   }
 }

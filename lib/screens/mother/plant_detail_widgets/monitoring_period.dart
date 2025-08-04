@@ -66,56 +66,105 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
           child: Icon(
             _getStatusIcon(trackingHistory.uploadStatus),
             color: _getStatusColor(trackingHistory.uploadStatus),
-            size: ResponsiveUtils.getResponsiveIconSize(context, mobile: 20, tablet: 24, desktop: 28),
+            size: ResponsiveUtils.getResponsiveIconSize(context, mobile: 24, tablet: 28, desktop: 32),
           ),
         ),
-        trailing: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16),
-            vertical: ResponsiveUtils.getResponsiveGap(context, mobile: 4, tablet: 6, desktop: 8),
-          ),
-          decoration: BoxDecoration(
-            color: _getStatusColor(trackingHistory.uploadStatus).withOpacity(0.1),
-            borderRadius: ResponsiveUtils.getResponsiveBorderRadius(context, mobile: 6, tablet: 8, desktop: 10),
-          ),
-          child: Text(
-            _getUploadStatusText(trackingHistory.uploadStatus, l10n),
-            style: TextStyle(
-              color: _getStatusColor(trackingHistory.uploadStatus),
-              fontWeight: FontWeight.w500,
-              fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 12, tablet: 14, desktop: 16),
-            ),
-          ),
-        ),
-        onTap: () => onUploadTap(trackingHistory, l10n),
+        trailing: (trackingHistory.uploadStatus == 'uploaded' || trackingHistory.completedDate != null) ? null :
+          _canUpload(trackingHistory.uploadStatus, trackingHistory.dueDate)
+            ? ElevatedButton.icon(
+                onPressed: () => onUploadTap(trackingHistory, l10n),
+                icon: Icon(Icons.upload, color: Colors.white),
+                label: Text('Upload', style: TextStyle(color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                ),
+              )
+            : null,
+        onTap: (trackingHistory.uploadStatus == 'uploaded' || trackingHistory.completedDate != null) ? null :
+          _canUpload(trackingHistory.uploadStatus, trackingHistory.dueDate)
+            ? () => onUploadTap(trackingHistory, l10n)
+            : null,
       ),
     );
   }
 
-  String _getUploadStatusText(String status, AppLocalizations l10n) {
-    switch (status) {
-      case 'pending': return l10n.pending;
-      case 'uploaded': return l10n.uploaded;
-      case 'overdue': return l10n.overdue;
-      default: return status;
-    }
-  }
-
   Color _getStatusColor(String status) {
-    switch (status) {
-      case 'pending': return AppColors.warning;
-      case 'uploaded': return AppColors.success;
-      case 'overdue': return AppColors.error;
-      default: return AppColors.textSecondary;
+    if (status == 'uploaded' || trackingHistory.completedDate != null) {
+      return Colors.green;  // Always green for uploaded
+    }
+
+    // For pending and overdue, check the date
+    final dueDate = DateTime.tryParse(trackingHistory.dueDate);
+    if (dueDate == null) return AppColors.textSecondary;
+    
+    final now = DateTime.now();
+    final weekBefore = dueDate.subtract(const Duration(days: 7));
+    
+    if (now.isBefore(dueDate)) {
+      if (now.isAfter(weekBefore)) {
+        return Colors.orange; // Time to upload (within the week window)
+      } else {
+        return Colors.grey; // Future week
+      }
+    } else {
+      return Colors.red; // Past due date
     }
   }
 
   IconData _getStatusIcon(String status) {
-    switch (status) {
-      case 'pending': return Icons.schedule;
-      case 'uploaded': return Icons.check_circle;
-      case 'overdue': return Icons.warning;
-      default: return Icons.help;
+    if (status == 'uploaded' || trackingHistory.completedDate != null) {
+      return Icons.check_circle;  // Always show checkmark for uploaded
     }
+
+    // For pending and overdue, check the date
+    final dueDate = DateTime.tryParse(trackingHistory.dueDate);
+    if (dueDate == null) return Icons.help;
+    
+    final now = DateTime.now();
+    final weekBefore = dueDate.subtract(const Duration(days: 7));
+    
+    if (now.isBefore(dueDate)) {
+      if (now.isAfter(weekBefore)) {
+        return Icons.schedule; // Time to upload (within the week window)
+      } else {
+        return Icons.schedule; // Future week
+      }
+    } else {
+      return Icons.warning; // Past due date
+    }
+  }
+
+  // Add this method to check if upload is allowed
+  bool _canUpload(String uploadStatus, String dueDateStr) {
+    print('Checking upload status: $uploadStatus, Due date: $dueDateStr');
+    
+    if (uploadStatus == 'uploaded') {
+      print('Upload blocked - already uploaded');
+      return false;
+    }
+    
+    final dueDate = DateTime.tryParse(dueDateStr);
+    if (dueDate == null) {
+      print('Upload blocked - invalid date');
+      return false;
+    }
+
+    final now = DateTime.now();
+    final weekBefore = dueDate.subtract(const Duration(days: 6));
+    final dayAfter = dueDate.add(const Duration(days: 1));
+    
+    final bool isInUploadWindow = now.isAfter(weekBefore) && now.isBefore(dayAfter);
+    print('''
+Upload window details:
+- Current time: ${now.toLocal()}
+- Upload window starts: ${weekBefore.toLocal()}
+- Due date: ${dueDate.toLocal()}
+- Upload window ends: ${dayAfter.toLocal()}
+- Days until due: ${dueDate.difference(now).inDays}
+- Is in upload window: $isInUploadWindow
+''');
+    
+    return isInUploadWindow;
   }
 }
