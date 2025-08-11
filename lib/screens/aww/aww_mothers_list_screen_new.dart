@@ -6,7 +6,6 @@ import '../../utils/theme.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/responsive.dart';
 import '../../utils/constants.dart';
-import 'mitanin_mother_plants_screen.dart';
 
 class AWWMothersListScreen extends StatefulWidget {
   @override
@@ -28,36 +27,20 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
   Future<void> _loadRegistrations() async {
     setState(() => _isLoading = true);
     try {
-      List<MotherListItem> allMothers = [];
-      int currentPage = 1;
-      bool hasMoreData = true;
-      
-      // Load all pages of mothers
-      while (hasMoreData) {
-        final prefs = await SharedPreferences.getInstance();
-        final token = prefs.getString('auth_token');
-        final url = Uri.parse('${AppConstants.baseUrl}/mitanin/mothers?page=$currentPage&limit=50');
-        final response = await ApiService.getMothersFromUrl(url, token);
-        
-        if (response != null && response.success) {
-          allMothers.addAll(response.data.mothers);
-          
-          // Check if there are more pages
-          if (response.data.pagination.hasNextPage) {
-            currentPage++;
-          } else {
-            hasMoreData = false;
-          }
-        } else {
-          hasMoreData = false;
-        }
+      // Use mitanin/mothers API
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final url = Uri.parse('${AppConstants.baseUrl}/mitanin/mothers');
+      final response = await ApiService.getMothersFromUrl(url, token);
+      if (response != null && response.success) {
+        setState(() {
+          _allMothers = response.data.mothers;
+          _filteredMothers = response.data.mothers;
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
       }
-      
-      setState(() {
-        _allMothers = allMothers;
-        _filteredMothers = allMothers;
-        _isLoading = false;
-      });
     } catch (e) {
       print('Error loading mothers: $e');
       setState(() => _isLoading = false);
@@ -149,20 +132,6 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
     } catch (e) {
       return dateString;
     }
-  }
-
-  void _navigateToMotherPlants(MotherListItem mother) {
-    // Navigate to mother's plant dashboard for mitanin to upload photos
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => MitaninMotherPlantsScreen(
-          motherId: mother.childId.toString(),
-          motherName: mother.motherName,
-          childName: mother.childName,
-        ),
-      ),
-    );
   }
 
   @override
@@ -378,26 +347,11 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
               SizedBox(height: 8),
               Row(
                 children: [
-                  Expanded(
-                    child: Text('Birth Certificate: ${mother.additionalInfo?.birthCertificate ?? "-"}', 
-                      style: TextStyle(fontSize: 12, color: Colors.teal),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  SizedBox(width: 4),
-                  Expanded(
-                    child: Text('Shramik Card: ${mother.additionalInfo?.isShramikCard ?? "-"}', 
-                      style: TextStyle(fontSize: 12, color: Colors.teal),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  SizedBox(width: 4),
-                  Expanded(
-                    child: Text('Ayushman Used: ${mother.additionalInfo?.isUsedAyushmanCard ?? "-"}', 
-                      style: TextStyle(fontSize: 12, color: Colors.teal),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
+                  Text('Birth Certificate: ${mother.additionalInfo?.birthCertificate ?? "-"}', style: TextStyle(fontSize: 13.2, color: Colors.teal)),
+                  SizedBox(width: 8),
+                  Text('Shramik Card: ${mother.additionalInfo?.isShramikCard ?? "-"}', style: TextStyle(fontSize: 13.2, color: Colors.teal)),
+                  SizedBox(width: 8),
+                  Text('Ayushman Used: ${mother.additionalInfo?.isUsedAyushmanCard ?? "-"}', style: TextStyle(fontSize: 13.2, color: Colors.teal)),
                 ],
               ),
               SizedBox(height: 8),
@@ -438,10 +392,10 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
                           Colors.green,
                         ),
                         _buildPhotoSummaryItem(
-                          'लंबित',
-                          '40',
-                          Icons.pending,
-                          Colors.orange,
+                          'अपेक्षित',
+                          '${_calculateExpectedPhotos(mother)}',
+                          Icons.photo_outlined,
+                          Colors.blue,
                         ),
                         _buildPhotoSummaryItem(
                           'छूटी हुई',
@@ -450,31 +404,6 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
                           Colors.red,
                         ),
                       ],
-                    ),
-                    SizedBox(height: 12),
-                    // Upload button for mitanin
-                    Container(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: () => _navigateToMotherPlants(mother),
-                        icon: Icon(Icons.add_a_photo, color: Colors.white),
-                        label: Text(
-                          'फोटो अपलोड करें',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                          ),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          padding: EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          elevation: 2,
-                        ),
-                      ),
                     ),
                   ],
                 ),

@@ -13,10 +13,11 @@ class PlantOverallProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    int totalUploads = trackingHistory.length;
-    int completedUploads = trackingHistory.where((u) => u.uploadStatus == 'uploaded').length;
-    int pendingUploads = trackingHistory.where((u) => u.uploadStatus == 'pending').length;
-    int overdueUploads = trackingHistory.where((u) => u.uploadStatus == 'overdue').length;
+    // Use stats data directly instead of calculating from trackingHistory
+    int completedUploads = stats.completed;
+    int pendingUploads = stats.pending;
+    int overdueUploads = stats.overdue;
+    int totalUploads = stats.totalSchedules;
     final progress = totalUploads > 0 ? completedUploads / totalUploads : 0.0;
     return Card(
       elevation: 4,

@@ -57,13 +57,6 @@ class AuthService {
     return 'mother';
   }
 
-  static String _getNameFromPhone(String phone) {
-    // Mock name generation for demo
-    if (phone.startsWith('1')) return 'Hospital Staff';
-    if (phone.startsWith('2')) return 'AWW Worker/Mitanin';
-    return 'Mother User';
-  }
-
   static String _getNameFromRole(String role) {
     // Mock name generation based on role
     switch (role) {
@@ -95,22 +88,46 @@ class AuthService {
   }
 
   static Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('auth_token');
-    if (token != null) {
-      final url = Uri.parse('${AppConstants.baseUrl}/auth/logout');
-      final response = await http.post(
-        url,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
-      final Map<String, dynamic> responseData = jsonDecode(response.body);
-      if (response.statusCode != 200 || responseData['success'] != true) {
-        throw Exception(responseData['message'] ?? 'Logout failed');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      
+      if (token != null) {
+        try {
+          final url = Uri.parse('${AppConstants.baseUrl}/auth/logout');
+          final response = await http.post(
+            url,
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $token',
+            },
+          );
+          
+          if (response.statusCode == 200) {
+            final Map<String, dynamic> responseData = jsonDecode(response.body);
+            if (responseData['success'] != true) {
+              print('Logout API returned success: false, but continuing with local logout');
+            }
+          } else {
+            print('Logout API failed with status: ${response.statusCode}, but continuing with local logout');
+          }
+        } catch (e) {
+          print('Logout API call failed: $e, but continuing with local logout');
+        }
+      }
+      
+      // Always clear local data regardless of API response
+      await prefs.clear();
+      print('Local logout completed successfully');
+    } catch (e) {
+      print('Error during logout: $e');
+      // Even if there's an error, try to clear preferences
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.clear();
+      } catch (clearError) {
+        print('Failed to clear preferences: $clearError');
       }
     }
-    await prefs.clear();
   }
 }

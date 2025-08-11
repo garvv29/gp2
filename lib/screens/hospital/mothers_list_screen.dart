@@ -21,32 +21,71 @@ class _MothersListScreenState extends State<MothersListScreen> {
   bool _isLoading = true;
   String _searchQuery = '';
   Pagination? _pagination;
+  int _currentPage = 1;
+  bool _hasMoreData = true;
 
   @override
   void initState() {
     super.initState();
-    _loadRegistrations();
+    _loadAllMothers();
+  }
+
+  Future<void> _loadAllMothers() async {
+    setState(() {
+      _isLoading = true;
+      _allMothers.clear();
+      _currentPage = 1;
+      _hasMoreData = true;
+    });
+    
+    try {
+      // Load all pages of mothers
+      while (_hasMoreData) {
+        print('[MOTHERS_LIST] Loading page $_currentPage...');
+        final response = await ApiService.getMothers(page: _currentPage);
+        
+        if (response != null && response.success) {
+          final newMothers = response.data.mothers;
+          print('[MOTHERS_LIST] Page $_currentPage loaded: ${newMothers.length} mothers');
+          
+          setState(() {
+            _allMothers.addAll(newMothers);
+            _pagination = response.data.pagination;
+          });
+          
+          // Check if there are more pages
+          if (_pagination != null) {
+            _hasMoreData = _currentPage < _pagination!.totalPages;
+            _currentPage++;
+          } else {
+            _hasMoreData = false;
+          }
+          
+          // If we got fewer mothers than expected, we've reached the end
+          if (newMothers.length < 10) {
+            _hasMoreData = false;
+          }
+        } else {
+          print('[MOTHERS_LIST] Failed to load page $_currentPage');
+          _hasMoreData = false;
+        }
+      }
+      
+      setState(() {
+        _filteredMothers = _allMothers;
+        _isLoading = false;
+      });
+      
+      print('[MOTHERS_LIST] ✅ Total mothers loaded: ${_allMothers.length}');
+      
+    } catch (e) {
+      print('[MOTHERS_LIST] ❌ Error loading mothers: $e');
+      setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _loadRegistrations() async {
-    setState(() => _isLoading = true);
-    
-    try {
-      final response = await ApiService.getMothers();
-      if (response != null && response.success) {
-        setState(() {
-          _allMothers = response.data.mothers;
-          _filteredMothers = response.data.mothers;
-          _pagination = response.data.pagination;
-          _isLoading = false;
-        });
-      } else {
-        setState(() => _isLoading = false);
-      }
-    } catch (e) {
-      print('Error loading mothers: $e');
-      setState(() => _isLoading = false);
-    }
+    _loadAllMothers(); // Use the comprehensive loading method
   }
 
   void _filterRegistrations(String query) {
@@ -237,6 +276,45 @@ class _MothersListScreenState extends State<MothersListScreen> {
                         ),
                       ),
                       SizedBox(height: 10),
+                      // Photo Upload Summary
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('फोटो अपलोड सारांश', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                              SizedBox(height: 12),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                children: [
+                                  _buildPhotoSummaryItem(
+                                    'अपलोड की गई',
+                                    '${data.plantTrackingInfo.totalSchedules}',
+                                    Icons.photo,
+                                    Colors.green,
+                                  ),
+                                  _buildPhotoSummaryItem(
+                                    'अपेक्षित',
+                                    '${_calculateExpectedPhotos(data.plantTrackingInfo)}',
+                                    Icons.photo_outlined,
+                                    Colors.blue,
+                                  ),
+                                  _buildPhotoSummaryItem(
+                                    'छूटी हुई',
+                                    '${_calculateMissedPhotos(data.plantTrackingInfo)}',
+                                    Icons.warning,
+                                    Colors.red,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 10),
                       // Plant Tracking Summary
                       Card(
                         elevation: 2,
@@ -320,6 +398,124 @@ class _MothersListScreenState extends State<MothersListScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildPhotoSummaryItem(String label, String count, IconData icon, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        SizedBox(height: 4),
+        Text(
+          count,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: AppColors.textSecondary,
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  int _calculateExpectedPhotos(PlantTrackingInfo plantTrackingInfo) {
+    // Calculate expected photos based on plant assignments and tracking duration
+    // For simplicity, assume 8 photos per plant (4 in month 1, 4 in months 2-3)
+    return plantTrackingInfo.totalAssignments * 8;
+  }
+
+  int _calculateMissedPhotos(PlantTrackingInfo plantTrackingInfo) {
+    // Calculate missed photos as the difference between expected and uploaded
+    int expected = _calculateExpectedPhotos(plantTrackingInfo);
+    int uploaded = plantTrackingInfo.totalSchedules;
+    return (expected - uploaded).clamp(0, expected);
+  }
+
+  Widget _buildPhotoCountChip(String label, String count, IconData icon, Color color) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 14),
+          SizedBox(width: 4),
+          Text(
+            count,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: color,
+            ),
+          ),
+          SizedBox(width: 2),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              color: color,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  int _calculateExpectedPhotosForMother(MotherListItem mother) {
+    // Calculate expected photos based on delivery date and current date
+    final deliveryDate = DateTime.parse(mother.deliveryDate);
+    final currentDate = DateTime.now();
+    final daysSinceDelivery = currentDate.difference(deliveryDate).inDays;
+    
+    // Get total plants assigned to this mother
+    final totalPlants = mother.totalPlants ?? mother.plantQuantityList.length;
+    if (totalPlants == 0) return 0;
+    
+    // Green Palna tracking is for 3 months (90 days)
+    // Month 1: Weekly photos (4 photos)
+    // Month 2: Bi-weekly photos (2 photos)  
+    // Month 3: Bi-weekly photos (2 photos)
+    // Total expected: 8 photos per plant
+    
+    if (daysSinceDelivery < 0) return 0;
+    if (daysSinceDelivery > 90) return totalPlants * 8; // Full 3 months completed
+    
+    int expectedPhotosPerPlant = 0;
+    
+    // Month 1 (0-30 days): Weekly photos
+    if (daysSinceDelivery >= 7) expectedPhotosPerPlant += 1;
+    if (daysSinceDelivery >= 14) expectedPhotosPerPlant += 1;
+    if (daysSinceDelivery >= 21) expectedPhotosPerPlant += 1;
+    if (daysSinceDelivery >= 28) expectedPhotosPerPlant += 1;
+    
+    // Month 2 (31-60 days): Bi-weekly photos
+    if (daysSinceDelivery >= 42) expectedPhotosPerPlant += 1;
+    if (daysSinceDelivery >= 56) expectedPhotosPerPlant += 1;
+    
+    // Month 3 (61-90 days): Bi-weekly photos
+    if (daysSinceDelivery >= 70) expectedPhotosPerPlant += 1;
+    if (daysSinceDelivery >= 84) expectedPhotosPerPlant += 1;
+    
+    return totalPlants * expectedPhotosPerPlant;
   }
 
   Widget _buildDetailRow(String label, String value) {
@@ -436,6 +632,14 @@ class _MothersListScreenState extends State<MothersListScreen> {
 
   Widget _buildMotherCard(MotherListItem mother, AppLocalizations l10n) {
     final isMale = mother.childGender == 'male';
+    
+    // Use actual photo counts from API data
+    final uploadedPhotos = mother.uploadedPhotos ?? 0;
+    final totalPlants = mother.totalPlants ?? mother.plantQuantityList.length;
+    final expectedPhotos = _calculateExpectedPhotosForMother(mother);
+    final pendingPhotos = (expectedPhotos - uploadedPhotos).clamp(0, expectedPhotos);
+    final missedPhotos = 0; // For now, calculate this based on overdue schedules
+    
     return AnimatedContainer(
       duration: Duration(milliseconds: 300),
       curve: Curves.easeInOut,
@@ -455,49 +659,63 @@ class _MothersListScreenState extends State<MothersListScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         tilePadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         childrenPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        title: Row(
+        title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: isMale ? Colors.blue[50] : Colors.pink[50],
-              child: Icon(
-                isMale ? Icons.male : Icons.female,
-                color: isMale ? Colors.blue : Colors.pink,
-                size: 32,
-              ),
-            ),
-            SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(mother.motherName, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5)),
-                  SizedBox(height: 2),
-                  // Text(mother.childName, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5, color: AppColors.textSecondary)), // HIDDEN
-                  Text(mother.motherMobile, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5, color: AppColors.textSecondary)),
-                ],
-              ),
-            ),
-            SizedBox(width: 8),
-            Column(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.grey[300]!),
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: isMale ? Colors.blue[50] : Colors.pink[50],
+                  child: Icon(
+                    isMale ? Icons.male : Icons.female,
+                    color: isMale ? Colors.blue : Colors.pink,
+                    size: 32,
                   ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                ),
+                SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.calendar_month, color: Colors.deepPurple, size: 15),
-                      SizedBox(width: 3),
-                      Text(_formatDate(mother.deliveryDate), style: TextStyle(fontSize: 12.5, color: Colors.deepPurple, fontWeight: FontWeight.w600)),
+                      Text(mother.motherName, style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5)),
+                      SizedBox(height: 2),
+                      Text(mother.motherMobile, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13.5, color: AppColors.textSecondary)),
                     ],
                   ),
                 ),
+                SizedBox(width: 8),
+                Column(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.calendar_month, color: Colors.deepPurple, size: 15),
+                          SizedBox(width: 3),
+                          Text(_formatDate(mother.deliveryDate), style: TextStyle(fontSize: 12.5, color: Colors.deepPurple, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            // Photo counts summary
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildPhotoCountChip('अपलोड', uploadedPhotos.toString(), Icons.photo, Colors.green),
+                _buildPhotoCountChip('बची', pendingPhotos.toString(), Icons.pending, Colors.blue),
+                _buildPhotoCountChip('छूटी', missedPhotos.toString(), Icons.warning, Colors.red),
               ],
             ),
           ],

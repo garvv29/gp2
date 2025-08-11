@@ -16,6 +16,7 @@ import '../models/mother_registration_response.dart';
 import '../models/mothers_list_response.dart';
 import '../models/mother_detail_response.dart';
 import '../models/pending_verification_response.dart';
+import '../models/uploaded_photos_response.dart';
 import '../models/mitanin_mother_detail_response.dart';
 
 class ApiService {
@@ -572,6 +573,192 @@ class ApiService {
     }
   }
 
+  // Mitanin photo upload for mothers
+  static Future<Map<String, dynamic>> uploadMitaninPlantPhoto({
+    required int assignmentId,
+    required String photoPath,
+    required String latitude,
+    required String longitude,
+    required String remarks,
+  }) async {
+    try {
+      print('=== MITANIN PHOTO UPLOAD API REQUEST START ===');
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      // Use the mitanin endpoint
+      final url = Uri.parse('${AppConstants.baseUrl}/mitanin/plants/$assignmentId/upload-photo');
+      print('[API REQUEST] Method: POST');
+      print('[API REQUEST] URL: $url');
+      print('[API REQUEST] Assignment ID: $assignmentId');
+      print('[API REQUEST] Photo Path: $photoPath');
+      print('[API REQUEST] Latitude: $latitude');
+      print('[API REQUEST] Longitude: $longitude');
+      print('[API REQUEST] Remarks: $remarks');
+      print('[API REQUEST] Auth Token: Bearer ${token != null ? '${token.substring(0, 20)}...' : 'NULL'}');
+      
+      if (token == null) {
+        print('[API ERROR] No auth token found in shared preferences');
+        return {
+          'success': false,
+          'message': 'प्रमाणीकरण टोकन नहीं मिला। कृपया पुनः लॉगिन करें।',
+          'statusCode': 401
+        };
+      }
+
+      final file = File(photoPath);
+      if (!await file.exists()) {
+        print('[API REQUEST] ERROR: Photo file does not exist at path: $photoPath');
+        return {
+          'success': false,
+          'message': 'Photo file not found. Please take photo again.'
+        };
+      }
+
+      final fileSize = await file.length();
+      print('[API REQUEST] Photo file size: ${fileSize} bytes (${(fileSize / 1024 / 1024).toStringAsFixed(2)} MB)');
+      
+      if (fileSize > 10 * 1024 * 1024) {
+        print('[API REQUEST] ERROR: Photo file too large: ${fileSize} bytes');
+        return {
+          'success': false,
+          'message': 'Photo file too large. Please choose a smaller image.'
+        };
+      }
+      
+      if (fileSize == 0) {
+        print('[API REQUEST] ERROR: Photo file is empty: ${fileSize} bytes');
+        return {
+          'success': false,
+          'message': 'Photo file is empty. Please take photo again.'
+        };
+      }
+
+      try {
+        final lat = double.parse(latitude);
+        final lng = double.parse(longitude);
+        print('[API REQUEST] Parsed coordinates: lat=$lat, lng=$lng');
+        if (lat.abs() > 90 || lng.abs() > 180) {
+          print('[API REQUEST] ERROR: Invalid coordinates: lat=$lat, lng=$lng');
+          return {
+            'success': false,
+            'message': 'Invalid GPS coordinates. Please enable location and try again.'
+          };
+        }
+      } catch (e) {
+        print('[API REQUEST] ERROR: Invalid coordinate format: lat=$latitude, lng=$longitude, error=$e');
+        return {
+          'success': false,
+          'message': 'Invalid location data. Please enable location and try again.'
+        };
+      }
+
+      final request = http.MultipartRequest('POST', url);
+      request.headers['Authorization'] = 'Bearer $token';
+      request.fields['latitude'] = latitude;
+      request.fields['longitude'] = longitude;
+      request.fields['remarks'] = remarks;
+
+      final multipartFile = await http.MultipartFile.fromPath(
+        'photo',
+        photoPath,
+        contentType: MediaType('image', 'jpeg'),
+      );
+      request.files.add(multipartFile);
+
+      print('[API REQUEST] Form Fields: ${request.fields}');
+      print('[API REQUEST] Files: ${request.files.map((f) => 'Field: ${f.field}, Filename: ${f.filename}, ContentType: ${f.contentType}, Length: ${f.length}')}');
+      print('[API REQUEST] Sending request...');
+      print('[API REQUEST] Request timeout: 30 seconds');
+
+      final streamedResponse = await request.send().timeout(
+        Duration(seconds: 30),
+        onTimeout: () {
+          print('[API REQUEST] ERROR: Request timeout after 30 seconds');
+          throw Exception('Request timeout. Please check your internet connection.');
+        },
+      );
+
+      final response = await http.Response.fromStream(streamedResponse);
+      print('=== MITANIN PHOTO UPLOAD API RESPONSE ===');
+      print('[API RESPONSE] Status Code: ${response.statusCode}');
+      print('[API RESPONSE] Headers: ${response.headers}');
+      print('[API RESPONSE] Content Length: ${response.contentLength}');
+      print('[API RESPONSE] Body: ${response.body}');
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        print('[API RESPONSE] Success - Parsing JSON response...');
+        final decoded = jsonDecode(response.body);
+        print('[API RESPONSE] Parsed JSON: $decoded');
+        final result = {
+          'success': true,
+          'message': decoded['message'] ?? 'Photo uploaded successfully by mitanin',
+          'data': decoded
+        };
+        print('[API RESPONSE] Final Result: $result');
+        print('=== MITANIN PHOTO UPLOAD API REQUEST END (SUCCESS) ===');
+        return result;
+      } else {
+        try {
+          final decoded = jsonDecode(response.body);
+          String errorMessage = decoded['message'] ?? 'Upload failed';
+          if (response.statusCode == 404) {
+            errorMessage = 'Plant assignment not found or does not belong to your hospital';
+          } else if (response.statusCode == 401) {
+            errorMessage = 'Authentication failed. Please login again.';
+          } else if (response.statusCode == 403) {
+            errorMessage = 'You do not have permission to upload photos for this assignment';
+          } else if (response.statusCode == 422) {
+            errorMessage = 'Invalid data provided. Check photo and location.';
+          } else {
+            errorMessage = 'Upload failed with status ${response.statusCode}';
+          }
+          final result = {
+            'success': false,
+            'message': errorMessage,
+            'statusCode': response.statusCode,
+            'rawResponse': decoded
+          };
+          print('[API RESPONSE] Error Result: $result');
+          print('=== MITANIN PHOTO UPLOAD API REQUEST END (ERROR) ===');
+          return result;
+        } catch (parseError) {
+          print('[API RESPONSE] Failed to parse error JSON: $parseError');
+          print('[API RESPONSE] Raw error body: ${response.body}');
+          String errorMessage = 'Upload failed';
+          if (response.statusCode == 500) {
+            errorMessage = 'Server error: Assignment ID $assignmentId might not exist or server configuration issue. Please contact support.';
+          } else if (response.statusCode == 413) {
+            errorMessage = 'Photo file too large. Please choose a smaller image.';
+          } else {
+            errorMessage = 'Network error: Unable to upload photo. Status: ${response.statusCode}';
+          }
+          final result = {
+            'success': false,
+            'message': errorMessage,
+            'statusCode': response.statusCode,
+            'rawBody': response.body
+          };
+          print('[API RESPONSE] Default Error Result: $result');
+          print('=== MITANIN PHOTO UPLOAD API REQUEST END (PARSE ERROR) ===');
+          return result;
+        }
+      }
+    } catch (e) {
+      print('=== MITANIN PHOTO UPLOAD API EXCEPTION ===');
+      print('[API EXCEPTION] Error Type: ${e.runtimeType}');
+      print('[API EXCEPTION] Error Message: $e');
+      print('[API EXCEPTION] Stack Trace: ${StackTrace.current}');
+      
+      final result = {
+        'success': false,
+        'message': 'Network error: ${e.toString()}'
+      };
+      print('[API EXCEPTION] Exception Result: $result');
+      print('=== MITANIN PHOTO UPLOAD API REQUEST END (EXCEPTION) ===');
+      return result;
+    }
+  }
+
   static Future<HospitalDashboardResponse?> getHospitalDashboard() async {
     final token = await _getToken();
     final url = Uri.parse('${AppConstants.baseUrl}/hospital/dashboard');
@@ -663,6 +850,67 @@ class ApiService {
       return null;
     } catch (e) {
       print('Error fetching pending verification photos: $e');
+      return null;
+    }
+  }
+
+  static Future<UploadedPhotosResponse?> getUploadedPhotos({int page = 1, int limit = 10}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final url = Uri.parse('${AppConstants.baseUrl}/mitanin/uploaded-photos?page=$page&limit=$limit');
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        return UploadedPhotosResponse.fromJson(data);
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching uploaded photos: $e');
+      return null;
+    }
+  }
+
+  static Future<Map<String, dynamic>?> getMitaninMotherPlants(String childId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final url = Uri.parse('${AppConstants.baseUrl}/mitanin/mothers/$childId/plants');
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        return data;
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching mitanin mother plants: $e');
+      return null;
+    }
+  }
+
+  // Get plant details for mitanin
+  static Future<Map<String, dynamic>?> getMitaninPlantDetails(int assignmentId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('auth_token');
+      final url = Uri.parse('${AppConstants.baseUrl}/mitanin/plants/$assignmentId/details');
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        return data;
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching mitanin plant details: $e');
       return null;
     }
   }

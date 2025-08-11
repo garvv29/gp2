@@ -79,6 +79,8 @@ class MotherListItem {
   final GovernmentSchemes? governmentSchemes;
   final AdditionalInfo? additionalInfo;
   final List<PlantQuantityItem> plantQuantityList;
+  final int? uploadedPhotos; // Add photo count field
+  final int? totalPlants; // Add total plants count field
 
   MotherListItem({
     required this.childId,
@@ -98,6 +100,8 @@ class MotherListItem {
     this.governmentSchemes,
     this.additionalInfo,
     required this.plantQuantityList,
+    this.uploadedPhotos,
+    this.totalPlants,
   });
 
   factory MotherListItem.fromJson(Map<String, dynamic> json) {
@@ -132,6 +136,8 @@ class MotherListItem {
           ? AdditionalInfo.fromJson(json['additional_info'])
           : null,
       plantQuantityList: plantList,
+      uploadedPhotos: json['uploaded_photos'] ?? 0,
+      totalPlants: json['total_plants'] ?? plantList.length,
     );
   }
 }

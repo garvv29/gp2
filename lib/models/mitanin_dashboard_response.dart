@@ -39,16 +39,23 @@ class MitaninDashboardData {
 }
 
 class MitaninCounters {
+  final int totalUploadedPhotos;
+  final int totalMothers;
+  // Keep old fields for backward compatibility
   final int totalPendingVerification;
   final int totalVerificationPhotos;
 
   MitaninCounters({
-    required this.totalPendingVerification,
-    required this.totalVerificationPhotos,
+    required this.totalUploadedPhotos,
+    required this.totalMothers,
+    this.totalPendingVerification = 0,
+    this.totalVerificationPhotos = 0,
   });
 
   factory MitaninCounters.fromJson(Map<String, dynamic> json) {
     return MitaninCounters(
+      totalUploadedPhotos: json['total_uploaded_photos'] ?? json['total_verification_photos'] ?? 0,
+      totalMothers: json['total_mothers'] ?? 0,
       totalPendingVerification: json['total_pending_verification'] ?? 0,
       totalVerificationPhotos: json['total_verification_photos'] ?? 0,
     );

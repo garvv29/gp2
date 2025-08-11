@@ -1,25 +1,33 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 import 'dart:io';
+import 'dart:typed_data';
 import '../../models/mother_plant_detail_response.dart';
 import '../../utils/theme.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/responsive.dart';
-import 'plant_detail_widgets/plant_header.dart';
 import 'plant_detail_widgets/overall_progress.dart';
 import 'plant_detail_widgets/current_status_card.dart';
 import 'plant_detail_widgets/care_instructions.dart';
 import '../../services/api_service.dart';
+import '../../services/local_storage_service.dart';
 import 'plant_detail_widgets/monitoring_period.dart';
 
 class PlantDetailScreen extends StatefulWidget {
   final MotherPlantDetailData? plantDetailData;
   final int? assignmentId;
   final String? plantStatus; // NEW: plant status from plant_quantity
+  final bool isMitaninUpload; // NEW: flag to indicate mitanin is uploading
 
-  const PlantDetailScreen({Key? key, this.plantDetailData, this.assignmentId, this.plantStatus}) : super(key: key);
+  const PlantDetailScreen({
+    Key? key, 
+    this.plantDetailData, 
+    this.assignmentId, 
+    this.plantStatus,
+    this.isMitaninUpload = false
+  }) : super(key: key);
 
   @override
   _PlantDetailScreenState createState() => _PlantDetailScreenState();
@@ -29,15 +37,73 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   MotherPlantDetailData? _plantDetailData;
   bool _isLoading = false;
   String? _errorMessage;
+  List<Map<String, dynamic>> _localPhotos = [];
   
   @override
   void initState() {
     super.initState();
+    print('=== PlantDetailScreen InitState ===');
+    print('Assignment ID: ${widget.assignmentId}');
+    print('Is Mitanin Upload: ${widget.isMitaninUpload}');
     _plantDetailData = widget.plantDetailData;
     
     // If no plant detail data provided but assignment ID is available, fetch from API
     if (_plantDetailData == null && widget.assignmentId != null) {
       _fetchPlantDetails();
+    }
+    
+    // Load local photos if assignment ID is available
+    if (widget.assignmentId != null) {
+      _loadLocalPhotos();
+    }
+  }
+  
+  Future<void> _loadLocalPhotos() async {
+    if (widget.assignmentId != null) {
+      final localPhotos = await LocalStorageService.getLocalPhotosForAssignment(widget.assignmentId!);
+      setState(() {
+        _localPhotos = localPhotos;
+      });
+    }
+  }
+  
+  Map<String, dynamic>? _getLocalPhotoForWeek(int weekNumber, int monthNumber) {
+    for (var photo in _localPhotos) {
+      if (photo['weekNumber'] == weekNumber && photo['monthNumber'] == monthNumber) {
+        return photo;
+      }
+    }
+    return null;
+  }
+  
+  String _getDisplayPlantName(String plantName) {
+    // Replace lambhit with lakshit
+    return plantName.toLowerCase().replaceAll('lambhit', 'lakshit');
+  }
+  
+  Future<String?> _compressAndSaveImage(XFile imageFile) async {
+    try {
+      // Read the original image
+      final Uint8List imageBytes = await imageFile.readAsBytes();
+      final int originalSize = imageBytes.length;
+      
+      print('Original image size: ${(originalSize / 1024).toStringAsFixed(2)} KB');
+      
+      // Create a new file path for the compressed image
+      final String originalPath = imageFile.path;
+      final String compressedPath = originalPath.replaceAll(RegExp(r'\.(jpg|jpeg|png)$'), '_compressed.jpg');
+      
+      // Write the compressed image (the XFile is already compressed by ImagePicker)
+      final File compressedFile = File(compressedPath);
+      await compressedFile.writeAsBytes(imageBytes);
+      
+      print('Compressed image saved to: $compressedPath');
+      print('Final image size: ${(imageBytes.length / 1024).toStringAsFixed(2)} KB');
+      
+      return compressedPath;
+    } catch (e) {
+      print('Error processing image: $e');
+      return imageFile.path; // Return original path if compression fails
     }
   }
 
@@ -51,12 +117,56 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
       print('=== PlantDetailScreen API Request ===');
       print('[API REQUEST] Assignment ID (from query param - widget.assignmentId): [1m${widget.assignmentId}[0m');
       print('API Endpoint: mother/plants/${widget.assignmentId}/details');
-      final response = await ApiService.getMotherPlantDetails(widget.assignmentId!);
+      
+      dynamic response;
+      if (widget.isMitaninUpload) {
+        response = await ApiService.getMitaninPlantDetails(widget.assignmentId!);
+      } else {
+        response = await ApiService.getMotherPlantDetails(widget.assignmentId!);
+      }
       print('=== PlantDetailScreen API Response ===');
-      print('Response Success: [1m${response?.success}[0m');
-      print('Response Message: ${response?.message}');
-      print('Response Data: ${response?.data}');
-      if (response != null && response.success) {
+      // print('Response Success: [1m${response?.success}[0m');
+      // print('Response Message: ${response?.message}');
+      //       // print('Response Data: ${response?.data}');
+      if (widget.isMitaninUpload && response != null && response['success'] == true) {
+        final data = response['data'];
+        print('[API RESPONSE] Assignment ID (from response): ${data['assignment']['id']}');
+        print('[API RESPONSE] Plant ID (from response): ${data['assignment']['plant']['id']}');
+        print('Plant Detail Data Retrieved Successfully');
+        print('Plant Name: ${data['assignment']['plant']['name']}');
+        print('Plant Local Name: ${data['assignment']['plant']['localName']}');
+        print('Assignment Status: ${data['assignment']['status']}');
+        print('Stats - Total Schedules: ${data['stats']['totalSchedules']}');
+        print('Stats - Completed: ${data['stats']['completed']}');
+        print('Stats - Pending: ${data['stats']['pending']}');
+        print('Stats - Overdue: ${data['stats']['overdue']}');
+        print('Tracking History Count: ${data['trackingHistory'].length}');
+        
+        // Debug: Print full data structure to identify null issues
+        print('=== FULL DATA STRUCTURE DEBUG ===');
+        print('Assignment: ${data['assignment']}');
+        print('Stats: ${data['stats']}');
+        print('TrackingHistory: ${data['trackingHistory']}');
+        print('TrackingSchedules: ${data['trackingSchedules']}');
+        print('=== END DEBUG ===');
+        
+        // Convert the API response to MotherPlantDetailData format
+        try {
+          _plantDetailData = _convertMitaninResponseToPlantDetailData(data);
+          setState(() {
+            _isLoading = false;
+          });
+        } catch (conversionError) {
+          print('=== CONVERSION ERROR ===');
+          print('Error: $conversionError');
+          print('Error Type: ${conversionError.runtimeType}');
+          print('Stack: ${StackTrace.current}');
+          setState(() {
+            _errorMessage = 'Data conversion error: $conversionError';
+            _isLoading = false;
+          });
+        }
+      } else if (!widget.isMitaninUpload && response != null && response.success) {
         print('[API RESPONSE] Assignment ID (from response): ${response.data.assignment.id}');
         print('[API RESPONSE] Plant ID (from response): ${response.data.assignment.plant.id}');
         print('Plant Detail Data Retrieved Successfully');
@@ -89,6 +199,204 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
         _errorMessage = 'API Error: $e';
         _isLoading = false;
       });
+    }
+  }
+  
+  MotherPlantDetailData _convertMitaninResponseToPlantDetailData(Map<String, dynamic> data) {
+    // Convert mitanin API response to match MotherPlantDetailData structure
+    try {
+      // Validate input data first
+      if (data.isEmpty) {
+        throw Exception('Empty data received from API');
+      }
+      
+      // Helper function to safely convert to int
+      int safeInt(dynamic value, int fallback) {
+        if (value == null) return fallback;
+        if (value is int) return value;
+        if (value is String) return int.tryParse(value) ?? fallback;
+        return fallback;
+      }
+      
+      // Safely extract main sections with validation
+      final assignment = data['assignment'];
+      if (assignment == null) {
+        throw Exception('Assignment data is null');
+      }
+      
+      final plant = assignment['plant'];
+      if (plant == null) {
+        throw Exception('Plant data is null');
+      }
+      
+      final stats = data['stats'] ?? {};
+      final trackingHistory = (data['trackingHistory'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      final trackingSchedules = (data['trackingSchedules'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      
+      print('=== CONVERSION DEBUG ===');
+      print('Assignment ID: ${assignment['id']}');
+      print('Plant ID: ${plant['id']}');
+      print('Stats: $stats');
+      print('History count: ${trackingHistory.length}');
+      print('Schedules count: ${trackingSchedules.length}');
+      print('=== END CONVERSION DEBUG ===');
+      
+      // Calculate assigned date from tracking schedules (use first schedule as baseline)
+      String assignedDate = DateTime.now().toIso8601String();
+      if (trackingSchedules.isNotEmpty) {
+        // Assume assigned date is before first tracking week
+        final firstWeek = safeInt(trackingSchedules.first['week_number'], 1);
+        final baseDate = DateTime.now().subtract(Duration(days: (firstWeek - 1) * 7));
+        assignedDate = baseDate.toIso8601String();
+      }
+      
+      // Helper function to calculate due date for a week
+      DateTime calculateDueDate(int weekNumber) {
+        final safeWeekNumber = weekNumber > 0 ? weekNumber : 1;
+        final baseDate = DateTime.parse(assignedDate);
+        return baseDate.add(Duration(days: (safeWeekNumber - 1) * 7));
+      }
+      
+      // Helper function to find matching history safely
+      Map<String, dynamic> findMatchingHistory(int weekNumber) {
+        try {
+          if (weekNumber <= 0) return <String, dynamic>{};
+          return trackingHistory.firstWhere(
+            (h) => safeInt(h['week_number'], 0) == weekNumber, 
+            orElse: () => <String, dynamic>{}
+          );
+        } catch (e) {
+          return <String, dynamic>{};
+        }
+      }
+      
+      return MotherPlantDetailData.fromJson({
+        'assignment': {
+          'id': safeInt(assignment['id'], 0),
+          'assigned_date': assignedDate,
+          'status': assignment['status'] ?? 'active',
+          'plant': {
+            'id': safeInt(plant['id'], 0),
+            'name': plant['name'] ?? 'Unknown Plant',
+            'species': plant['species'] ?? '',
+            'local_name': plant['localName'] ?? '',
+            'description': '', // Not provided by mitanin API
+            'care_instructions': '', // Not provided by mitanin API
+          },
+          'child': {
+            'id': safeInt(assignment['child_id'], 0),
+            'child_name': 'Child Name', // Not provided in this response
+            'mother_name': 'Mother Name', // Not provided in this response
+            'mother_mobile': '0000000000', // Not provided in this response
+          }
+        },
+        'stats': {
+          'total_schedules': safeInt(stats['totalSchedules'], 0),
+          'completed': safeInt(stats['completed'], 0),
+          'pending': safeInt(stats['pending'], 0),
+          'overdue': safeInt(stats['overdue'], 0),
+          'completion_percentage': stats['completed'] != null && stats['totalSchedules'] != null && safeInt(stats['totalSchedules'], 0) > 0 
+              ? ((safeInt(stats['completed'], 0) / safeInt(stats['totalSchedules'], 1)) * 100).round() 
+              : 0,
+          'next_due_date': null,
+          'days_remaining': null,
+        },
+        'tracking_history': trackingHistory.map((item) => {
+          'schedule_id': safeInt(item['id'], 0),
+          'week_number': safeInt(item['week_number'], 0),
+          'month_number': safeInt(item['week_number'], 1) > 0 ? ((safeInt(item['week_number'], 1)) / 4).ceil() : 1,
+          'due_date': calculateDueDate(safeInt(item['week_number'], 1)).toIso8601String(),
+          'upload_status': item['photo_url'] != null ? 'completed' : 'pending',
+          'completed_date': item['created_at'],
+          'remarks': null,
+          'photo': item['photo_url'] != null ? {
+            'id': safeInt(item['id'], 0),
+            'photo_url': item['photo_url'],
+            'latitude': '0.0',
+            'longitude': '0.0',
+            'upload_date': item['created_at'],
+            'remarks': '',
+          } : null,
+        }).toList(),
+        'tracking_history_monthwise': {
+          'month1': {
+            'title': 'Month 1',
+            'description': 'First month tracking',
+            'weeks': trackingSchedules.where((s) => safeInt(s['month_number'], 0) == 1).map((s) {
+              final weekNumber = safeInt(s['week_number'], 0);
+              final scheduleId = safeInt(s['id'], weekNumber);
+              final matchingHistory = findMatchingHistory(weekNumber);
+              return {
+                'schedule_id': scheduleId,
+                'week_number': weekNumber,
+                'week_title': 'Week $weekNumber',
+                'due_date': calculateDueDate(weekNumber).toIso8601String(),
+                'assigned_date': assignedDate,
+                'upload_status': matchingHistory.isNotEmpty ? 'completed' : 'pending',
+                'completed_date': matchingHistory['created_at'],
+                'uploaded_date': matchingHistory['created_at'],
+                'remarks': null,
+                'photo': matchingHistory['photo_url'] != null ? {
+                  'photo_url': matchingHistory['photo_url'],
+                  'upload_date': matchingHistory['created_at'],
+                } : null,
+              };
+            }).toList(),
+          },
+          'month2': {
+            'title': 'Month 2',
+            'description': 'Second month tracking',
+            'weeks': trackingSchedules.where((s) => safeInt(s['month_number'], 0) == 2).map((s) {
+              final weekNumber = safeInt(s['week_number'], 0);
+              final scheduleId = safeInt(s['id'], weekNumber);
+              final matchingHistory = findMatchingHistory(weekNumber);
+              return {
+                'schedule_id': scheduleId,
+                'week_number': weekNumber,
+                'week_title': 'Week $weekNumber',
+                'due_date': calculateDueDate(weekNumber).toIso8601String(),
+                'assigned_date': assignedDate,
+                'upload_status': matchingHistory.isNotEmpty ? 'completed' : 'pending',
+                'completed_date': matchingHistory['created_at'],
+                'uploaded_date': matchingHistory['created_at'],
+                'remarks': null,
+                'photo': matchingHistory['photo_url'] != null ? {
+                  'photo_url': matchingHistory['photo_url'],
+                  'upload_date': matchingHistory['created_at'],
+                } : null,
+              };
+            }).toList(),
+          },
+          'month3': {
+            'title': 'Month 3',
+            'description': 'Third month tracking',
+            'weeks': trackingSchedules.where((s) => safeInt(s['month_number'], 0) == 3).map((s) {
+              final weekNumber = safeInt(s['week_number'], 0);
+              final scheduleId = safeInt(s['id'], weekNumber);
+              final matchingHistory = findMatchingHistory(weekNumber);
+              return {
+                'schedule_id': scheduleId,
+                'week_number': weekNumber,
+                'week_title': 'Week $weekNumber',
+                'due_date': calculateDueDate(weekNumber).toIso8601String(),
+                'assigned_date': assignedDate,
+                'upload_status': matchingHistory.isNotEmpty ? 'completed' : 'pending',
+                'completed_date': matchingHistory['created_at'],
+                'uploaded_date': matchingHistory['created_at'],
+                'remarks': null,
+                'photo': matchingHistory['photo_url'] != null ? {
+                  'photo_url': matchingHistory['photo_url'],
+                  'upload_date': matchingHistory['created_at'],
+                } : null,
+              };
+            }).toList(),
+          },
+        },
+      });
+    } catch (e) {
+      print('Error converting mitanin response: $e');
+      print('Data structure: $data');
+      rethrow; // Re-throw to see the actual error
     }
   }
   
@@ -300,13 +608,62 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Plant Header
-            PlantHeader(
-              context: context,
-              l10n: l10n,
-              plant: _plantDetailData!.assignment.plant,
-              assignment: _plantDetailData!.assignment,
-              child: _plantDetailData!.assignment.child,
+            // Custom Plant Header for Plant Detail Screen (with lakshit replacement)
+            Container(
+              padding: ResponsiveUtils.getResponsiveEdgeInsets(context, mobile: 16, tablet: 20, desktop: 24),
+              decoration: BoxDecoration(
+                gradient: AppColors.primaryGradient,
+                borderRadius: ResponsiveUtils.getResponsiveBorderRadius(context),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: ResponsiveUtils.getResponsiveIconSize(context, mobile: 60, tablet: 70, desktop: 80),
+                    height: ResponsiveUtils.getResponsiveIconSize(context, mobile: 60, tablet: 70, desktop: 80),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: ResponsiveUtils.getResponsiveBorderRadius(context),
+                    ),
+                    child: Icon(
+                      Icons.eco,
+                      color: Colors.white,
+                      size: ResponsiveUtils.getResponsiveIconSize(context, mobile: 30, tablet: 35, desktop: 40),
+                    ),
+                  ),
+                  SizedBox(width: ResponsiveUtils.getResponsiveGap(context, mobile: 16, tablet: 20, desktop: 24)),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          _getDisplayPlantName(_plantDetailData!.assignment.plant.name),
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 18, tablet: 20, desktop: 22),
+                          ),
+                        ),
+                        SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 4, tablet: 6, desktop: 8)),
+                        Text(
+                          'Plant ID: ' + _plantDetailData!.assignment.id.toString(),
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.white.withOpacity(0.85),
+                            fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 14, tablet: 16, desktop: 18),
+                          ),
+                        ),
+                        SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 4, tablet: 6, desktop: 8)),
+                        Text(
+                          'Child: ' + _plantDetailData!.assignment.child.childName,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: Colors.white.withOpacity(0.85),
+                            fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 14, tablet: 16, desktop: 18),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             if (widget.plantStatus != null) ...[
               SizedBox(height: 8),
@@ -428,14 +785,18 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
       photo: week.photo
     );
 
-    // If photo exists, make card clickable to show photo details
-    if (week.uploadStatus.toLowerCase() == 'uploaded' && week.photo != null) {
+    // Check for local photo
+    final localPhoto = _getLocalPhotoForWeek(week.weekNumber, monthNumber);
+
+    // If photo exists (server or local), make card clickable to show photo details
+    if ((week.uploadStatus.toLowerCase() == 'uploaded' && week.photo != null) || localPhoto != null) {
       return GestureDetector(
-        onTap: () => _showPhotoDetails(week, l10n),
+        onTap: () => _showPhotoDetails(week, l10n, monthNumber),
         child: PlantMonitoringPeriodCard(
           context: context,
           l10n: l10n,
           trackingHistory: trackingHistory,
+          localPhoto: localPhoto,
           onUploadTap: (history, l10n) {
             _showUploadPhotoPopup(context, assignmentId, history.weekNumber, monthNumber);
           },
@@ -448,13 +809,17 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
       context: context,
       l10n: l10n,
       trackingHistory: trackingHistory,
+      localPhoto: localPhoto,
       onUploadTap: (history, l10n) {
         _showUploadPhotoPopup(context, assignmentId, history.weekNumber, monthNumber);
       },
     );
   }
 
-  void _showPhotoDetails(WeekDetail week, AppLocalizations l10n) {
+  void _showPhotoDetails(WeekDetail week, AppLocalizations l10n, int monthNumber) {
+    // Get local photo for this week
+    final localPhoto = _getLocalPhotoForWeek(week.weekNumber, monthNumber);
+    
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -464,18 +829,62 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (week.photo != null && week.photo!.photoUrl.isNotEmpty)
+              // Show photo (prefer server photo if uploaded, otherwise show local photo)
+              if (week.photo != null && week.photo!.photoUrl.isNotEmpty) ...[
+                Text('अपलोड की गई फोटो:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                SizedBox(height: 8),
                 Padding(
                   padding: const EdgeInsets.only(bottom: 12.0),
-                  child: Image.network(week.photo!.photoUrl, height: 200),
+                  child: GestureDetector(
+                    onTap: () => _showFullScreenPhoto(week.photo!.photoUrl, true),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(week.photo!.photoUrl, height: 200, fit: BoxFit.cover),
+                    ),
+                  ),
                 ),
+              ] else if (localPhoto != null) ...[
+                Text('स्थानीय फोटो (अपलोड पेंडिंग):', 
+                     style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: GestureDetector(
+                    onTap: () => _showFullScreenPhoto(localPhoto['imagePath'], false),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(File(localPhoto['imagePath']), height: 200, fit: BoxFit.cover),
+                    ),
+                  ),
+                ),
+                if (localPhoto['remarks'] != null && localPhoto['remarks'].isNotEmpty)
+                  _buildDetailRow('स्थानीय टिप्पणी', localPhoto['remarks']),
+                _buildDetailRow('फोटो का समय', DateTime.parse(localPhoto['timestamp']).toString().split('.')[0]),
+                Container(
+                  padding: EdgeInsets.all(8),
+                  margin: EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.orange),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.cloud_upload, color: Colors.orange, size: 16),
+                      SizedBox(width: 6),
+                      Text('अपलोड पेंडिंग है', style: TextStyle(color: Colors.orange, fontSize: 12)),
+                    ],
+                  ),
+                ),
+              ],
+              
               _buildDetailRow('समय सीमा', week.dueDate),
               if (week.completedDate != null)
                 _buildDetailRow('पूर्ण दिनांक', week.completedDate!),
               if (week.uploadedDate != null)
                 _buildDetailRow('अपलोड दिनांक', week.uploadedDate!),
               if (week.remarks != null && week.remarks!.isNotEmpty)
-                _buildDetailRow('टिप्पणी', week.remarks!),
+                _buildDetailRow('सर्वर टिप्पणी', week.remarks!),
               _buildDetailRow('स्थिति', week.uploadStatus),
             ],
           ),
@@ -486,6 +895,67 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
             child: Text('बंद करें'),
           ),
         ],
+      ),
+    );
+  }
+  
+  void _showFullScreenPhoto(String imagePath, bool isNetworkImage) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                panEnabled: true,
+                scaleEnabled: true,
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: isNetworkImage 
+                  ? Image.network(
+                      imagePath,
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => 
+                        Center(child: Text('फोटो लोड नहीं हो सकी', style: TextStyle(color: Colors.white))),
+                    )
+                  : Image.file(
+                      File(imagePath),
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) => 
+                        Center(child: Text('फोटो लोड नहीं हो सकी', style: TextStyle(color: Colors.white))),
+                    ),
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+            Positioned(
+              bottom: 40,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'पिंच करके ज़ूम करें • टैप करके बंद करें',
+                    style: TextStyle(color: Colors.white, fontSize: 12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -753,13 +1223,15 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                                       onPressed: () async {
                                         final XFile? photo = await _picker.pickImage(
                                           source: ImageSource.camera, 
-                                          imageQuality: 70,
-                                          maxWidth: 1024,
-                                          maxHeight: 1024,
+                                          imageQuality: 60, // Improved compression
+                                          maxWidth: 800,   // Reduced size
+                                          maxHeight: 800,  // Reduced size
                                         );
                                         if (photo != null) {
+                                          // Compress and save the image
+                                          final String? compressedPath = await _compressAndSaveImage(photo);
                                           setState(() {
-                                            imagePath = photo.path;
+                                            imagePath = compressedPath ?? photo.path;
                                           });
                                         }
                                       },
@@ -771,13 +1243,15 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                                       onPressed: () async {
                                         final XFile? photo = await _picker.pickImage(
                                           source: ImageSource.gallery, 
-                                          imageQuality: 70,
-                                          maxWidth: 1024,
-                                          maxHeight: 1024,
+                                          imageQuality: 60, // Improved compression
+                                          maxWidth: 800,   // Reduced size
+                                          maxHeight: 800,  // Reduced size
                                         );
                                         if (photo != null) {
+                                          // Compress and save the image
+                                          final String? compressedPath = await _compressAndSaveImage(photo);
                                           setState(() {
-                                            imagePath = photo.path;
+                                            imagePath = compressedPath ?? photo.path;
                                           });
                                         }
                                       },
@@ -828,7 +1302,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                           String confirmationMessage = '';
                           
                           // Get current plant info for validation
-                          final currentPlantName = _plantDetailData!.assignment.plant.name;
+                          final currentPlantName = _getDisplayPlantName(_plantDetailData!.assignment.plant.name);
                           final currentPlantLocalName = _plantDetailData!.assignment.plant.localName;
                           final plantDisplayName = currentPlantLocalName.isNotEmpty ? currentPlantLocalName : currentPlantName;
                           
@@ -935,19 +1409,48 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                           }
 
                           // Proceed with upload
-                          final response = await ApiService.uploadMotherPlantAssignment(
+                          setState(() {
+                            isLoading = true;
+                          });
+                          
+                          // Save photo locally first
+                          await LocalStorageService.saveLocalPhoto(
                             assignmentId: assignmentId,
-                            photoPath: imagePath!,
-                            latitude: latitude!,
-                            longitude: longitude!,
+                            weekNumber: weekNumber,
+                            monthNumber: monthNumber,
+                            imagePath: imagePath!,
                             remarks: remarksController.text,
+                            latitude: latitude,
+                            longitude: longitude,
                           );
+                          
+                          final response = widget.isMitaninUpload 
+                            ? await ApiService.uploadMitaninPlantPhoto(
+                                assignmentId: assignmentId,
+                                photoPath: imagePath!,
+                                latitude: latitude!,
+                                longitude: longitude!,
+                                remarks: remarksController.text,
+                              )
+                            : await ApiService.uploadMotherPlantAssignment(
+                                assignmentId: assignmentId,
+                                photoPath: imagePath!,
+                                latitude: latitude!,
+                                longitude: longitude!,
+                                remarks: remarksController.text,
+                              );
 
                           setState(() {
                             isLoading = false;
                           });
 
                           if (response['success']) {
+                            // Mark local photo as uploaded
+                            await LocalStorageService.markPhotoAsUploaded(assignmentId, weekNumber, monthNumber);
+                            // Refresh local photos
+                            await _loadLocalPhotos();
+                            // Refresh plant details from server
+                            await _fetchPlantDetails();
                             Navigator.pop(context);
                             _showUploadSuccessPopup(context, response['data'], aiResult);
                           } else {
@@ -1010,7 +1513,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                 Builder(
                   builder: (context) {
                     final predictedClass = (aiResult['data']['predicted_class']?.toString() ?? '').toLowerCase();
-                    final currentPlantName = _plantDetailData!.assignment.plant.name;
+                    final currentPlantName = _getDisplayPlantName(_plantDetailData!.assignment.plant.name);
                     final currentPlantLocalName = _plantDetailData!.assignment.plant.localName;
                     final expectedPlant = '$currentPlantName $currentPlantLocalName'.toLowerCase();
                     

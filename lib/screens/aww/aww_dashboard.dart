@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:green_palna_yojna_app/screens/aww/aww_mothers_list_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
@@ -7,7 +6,8 @@ import '../../utils/theme.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/responsive.dart';
 import '../welcome_screen.dart';
-import 'mothers_list_screen.dart';
+import 'aww_mothers_list_screen.dart';
+import 'uploaded_photos_list_screen.dart';
 import '../../models/mitanin_dashboard_response.dart';
 
 class AWWDashboard extends StatefulWidget {
@@ -187,19 +187,19 @@ class _AWWDashboardState extends State<AWWDashboard> {
           children: [
             Expanded(
               child: _buildStatCard(
-                'लंबित सत्यापन',
-                '${counters.totalPendingVerification}',
-                Icons.pending_actions,
-                AppColors.warning,
+                'अपलोड की गई फोटो',
+                '${counters.totalUploadedPhotos}',
+                Icons.photo_library,
+                AppColors.success,
               ),
             ),
             SizedBox(width: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),
             Expanded(
               child: _buildStatCard(
-                'कुल सत्यापित फोटो',
-                '${counters.totalVerificationPhotos}',
-                Icons.check_circle,
-                AppColors.success,
+                'कुल माताएं',
+                '${counters.totalMothers}',
+                Icons.people,
+                AppColors.primary,
               ),
             ),
           ],
@@ -372,12 +372,10 @@ class _AWWDashboardState extends State<AWWDashboard> {
         ),
         SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 12, tablet: 16, desktop: 20)),
         _buildActionCard(
-          l10n.mothersList, // swapped
-          l10n.viewAllMothersAWW, // swapped
+          l10n.mothersList,
+          l10n.viewAllMothersAWW,
           Icons.people,
-          counters.totalPendingVerification > 0
-              ? '${counters.totalPendingVerification} ${l10n.pendingReviews}'
-              : l10n.noPendingReviews,
+          '${counters.totalMothers}',
           AppColors.primary,
           () => Navigator.push(
             context,
@@ -386,24 +384,15 @@ class _AWWDashboardState extends State<AWWDashboard> {
         ),
         SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),
         _buildActionCard(
-          l10n.reviewUploads, // swapped
-          l10n.reviewPendingPhotos, // swapped
-          Icons.rate_review,
-          l10n.viewAndManageMothers,
+          'अपलोड की गई फोटो देखें',
+          'माताओं द्वारा अपलोड की गई फोटो देखें',
+          Icons.photo_library,
+          '${counters.totalUploadedPhotos}',
           AppColors.secondary,
           () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => MothersListScreen()),
+            MaterialPageRoute(builder: (context) => UploadedPhotosListScreen()),
           ),
-        ),
-        SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),
-        _buildActionCard(
-          l10n.progressReports,
-          l10n.generateProgressReports,
-          Icons.assessment,
-          l10n.exportDataAndReports,
-          AppColors.accent,
-          () => _showReportsDialog(l10n),
         ),
         SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 16, tablet: 24, desktop: 32)),
       ],
@@ -440,74 +429,10 @@ class _AWWDashboardState extends State<AWWDashboard> {
           SizedBox(width: ResponsiveUtils.getResponsiveGap(context, mobile: 12, tablet: 16, desktop: 20)),
           Expanded(
             child: Text(
-              l10n.reviewPhotosMessage,
+              'आप यहाँ माताओं द्वारा अपलोड की गई फोटो देख सकते हैं और उनकी प्रगति की निगरानी कर सकते हैं।',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.white,
                 fontWeight: FontWeight.w500,
-                fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 14, tablet: 16, desktop: 18),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showComingSoonDialog(String feature, AppLocalizations l10n) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: ResponsiveUtils.getResponsiveBorderRadius(context)),
-        title: Text(
-          feature,
-          style: TextStyle(
-            fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 18, tablet: 20, desktop: 22),
-          ),
-        ),
-        content: Text(
-          l10n.comingSoon,
-          style: TextStyle(
-            fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 14, tablet: 16, desktop: 18),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              l10n.close,
-              style: TextStyle(
-                fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 14, tablet: 16, desktop: 18),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showReportsDialog(AppLocalizations l10n) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: ResponsiveUtils.getResponsiveBorderRadius(context)),
-        title: Text(
-          l10n.progressReports,
-          style: TextStyle(
-            fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 18, tablet: 20, desktop: 22),
-          ),
-        ),
-        content: Text(
-          l10n.progressReportsMessage,
-          style: TextStyle(
-            fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 14, tablet: 16, desktop: 18),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              l10n.close,
-              style: TextStyle(
                 fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 14, tablet: 16, desktop: 18),
               ),
             ),

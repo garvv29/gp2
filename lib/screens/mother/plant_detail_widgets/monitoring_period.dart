@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
 import '../../../utils/theme.dart';
 import '../../../utils/responsive.dart';
 import '../../../utils/app_localizations.dart';
@@ -9,12 +10,23 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
   final AppLocalizations l10n;
   final TrackingHistory trackingHistory;
   final Function(TrackingHistory, AppLocalizations) onUploadTap;
-  const PlantMonitoringPeriodCard({required this.context, required this.l10n, required this.trackingHistory, required this.onUploadTap, Key? key}) : super(key: key);
+  final Map<String, dynamic>? localPhoto;
+  
+  const PlantMonitoringPeriodCard({
+    required this.context, 
+    required this.l10n, 
+    required this.trackingHistory, 
+    required this.onUploadTap, 
+    this.localPhoto,
+    Key? key
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final dueDate = DateTime.tryParse(trackingHistory.dueDate);
     final completedDate = trackingHistory.completedDate != null ? DateTime.tryParse(trackingHistory.completedDate!) : null;
+    final hasPhoto = (trackingHistory.uploadStatus == 'uploaded' && trackingHistory.photo != null) || localPhoto != null;
+    
     return Card(
       margin: EdgeInsets.only(bottom: ResponsiveUtils.getResponsiveGap(context, mobile: 12, tablet: 16, desktop: 20)),
       elevation: 2,
@@ -69,24 +81,84 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
             size: ResponsiveUtils.getResponsiveIconSize(context, mobile: 24, tablet: 28, desktop: 32),
           ),
         ),
-        trailing: (trackingHistory.uploadStatus == 'uploaded' || trackingHistory.completedDate != null) ? null :
-          _canUpload(trackingHistory.uploadStatus, trackingHistory.dueDate)
-            ? ElevatedButton.icon(
-                onPressed: () => onUploadTap(trackingHistory, l10n),
-                icon: Icon(Icons.upload, color: Colors.white),
-                label: Text('Upload', style: TextStyle(color: Colors.white)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                ),
-              )
-            : null,
+        trailing: _buildTrailingWidget(),
         onTap: (trackingHistory.uploadStatus == 'uploaded' || trackingHistory.completedDate != null) ? null :
           _canUpload(trackingHistory.uploadStatus, trackingHistory.dueDate)
             ? () => onUploadTap(trackingHistory, l10n)
             : null,
       ),
     );
+  }
+
+  Widget _buildTrailingWidget() {
+    final hasServerPhoto = trackingHistory.uploadStatus == 'uploaded' && trackingHistory.photo != null;
+    final hasLocalPhoto = localPhoto != null;
+    
+    // If photo exists (server or local), show photo preview
+    if (hasServerPhoto || hasLocalPhoto) {
+      return Container(
+        width: 50,
+        height: 50,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(7),
+          child: hasServerPhoto ? 
+            Image.network(
+              trackingHistory.photo!.photoUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: AppColors.border,
+                  child: Icon(Icons.broken_image, color: AppColors.textSecondary, size: 20),
+                );
+              },
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  color: AppColors.border,
+                  child: Center(
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                );
+              },
+            ) : 
+            Image.file(
+              File(localPhoto!['imagePath']),
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  color: AppColors.border,
+                  child: Icon(Icons.broken_image, color: AppColors.textSecondary, size: 20),
+                );
+              },
+            ),
+        ),
+      );
+    }
+    
+    // If no photo but can upload, show upload button
+    if ((trackingHistory.uploadStatus != 'uploaded' && trackingHistory.completedDate == null) &&
+        _canUpload(trackingHistory.uploadStatus, trackingHistory.dueDate)) {
+      return ElevatedButton.icon(
+        onPressed: () => onUploadTap(trackingHistory, l10n),
+        icon: Icon(Icons.upload, color: Colors.white),
+        label: Text('Upload', style: TextStyle(color: Colors.white)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        ),
+      );
+    }
+    
+    // Otherwise show nothing
+    return SizedBox.shrink();
   }
 
   Color _getStatusColor(String status) {
