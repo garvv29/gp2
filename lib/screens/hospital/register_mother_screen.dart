@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../../utils/theme.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/responsive.dart';
+import '../../utils/image_compression_service.dart';
 import '../../services/api_service.dart';
 import '../../models/hospital_dashboard_response.dart';
 import 'package:image_picker/image_picker.dart';
@@ -27,6 +28,8 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
   final _deliveryTimeController = TextEditingController();
   final _childOrderController = TextEditingController();
   final _weightAtBirthController = TextEditingController();
+  final _villageController = TextEditingController(); // NEW: Village field
+  final _addressController = TextEditingController(); // NEW: Additional address field
   
   DateTime? _deliveryDate;
   String? _selectedDeliveryType;
@@ -121,6 +124,8 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
     _deliveryTimeController.dispose();
     _childOrderController.dispose();
     _weightAtBirthController.dispose();
+    _villageController.dispose();
+    _addressController.dispose();
     super.dispose();
   }
 
@@ -360,6 +365,22 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
                     return block.blockName ?? 'ब्लॉक चुनें';
                   },
                   validator: (value) => value == null ? 'Required' : null,
+                ),
+                SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),
+                
+                // NEW: Village Field
+                _buildTextField(
+                  controller: _villageController,
+                  label: 'गाँव',
+                  validator: (value) => value?.isEmpty == true ? 'गाँव का नाम आवश्यक है' : null,
+                ),
+                SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),
+                
+                // NEW: Additional Address Field
+                _buildTextField(
+                  controller: _addressController,
+                  label: 'पूरा पता (CHC/PHC/SHC या अन्य विवरण)',
+                  validator: (value) => value?.isEmpty == true ? 'पूरा पता आवश्यक है' : null,
                 ),
                 SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 16, tablet: 24, desktop: 32)),
                 
@@ -793,15 +814,85 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
   }
 
   Future<void> _pickImageFromCamera(bool isCertificate) async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.camera);
-    if (pickedFile != null) {
-      setState(() {
-        if (isCertificate) {
-          _certificatePhoto = File(pickedFile.path);
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 90,
+        maxWidth: 1920,
+        maxHeight: 1920,
+      );
+      
+      if (pickedFile != null) {
+        // Show loading indicator
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => Center(
+            child: Container(
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: AppColors.primary),
+                  SizedBox(height: 16),
+                  Text('फोटो को optimize कर रहे हैं...'),
+                ],
+              ),
+            ),
+          ),
+        );
+
+        // Compress the image
+        final File originalFile = File(pickedFile.path);
+        final File? compressedFile = await ImageCompressionService.compressImage(originalFile);
+        
+        // Close loading dialog
+        Navigator.pop(context);
+        
+        if (compressedFile != null) {
+          setState(() {
+            if (isCertificate) {
+              _certificatePhoto = compressedFile;
+            } else {
+              _motherPhoto = compressedFile;
+            }
+          });
+          
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('फोटो सफलतापूर्वक upload की गई'),
+              backgroundColor: AppColors.success,
+              duration: Duration(seconds: 2),
+            ),
+          );
         } else {
-          _motherPhoto = File(pickedFile.path);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('फोटो upload में समस्या हुई'),
+              backgroundColor: AppColors.error,
+              duration: Duration(seconds: 2),
+            ),
+          );
         }
-      });
+      }
+    } catch (e) {
+      // Close loading dialog if open
+      if (Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('फोटो upload में त्रुटि: $e'),
+          backgroundColor: AppColors.error,
+          duration: Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -1118,22 +1209,3 @@ extension LocalizationExtension on AppLocalizations {
 }
 
 // Helper widget for yes/no questions
-Widget _buildYesNoQuestion(String question, String? groupValue, ValueChanged<String?> onChanged, {List<String> options = const ['हाँ', 'नहीं']}) {
-  return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 6.0),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(question, style: TextStyle(fontWeight: FontWeight.w500)),
-        Row(
-          children: options.map((opt) => Row(
-            children: [
-              Radio<String>(value: opt, groupValue: groupValue, onChanged: onChanged),
-              Text(opt),
-            ],
-          )).toList(),
-        ),
-      ],
-    ),
-  );
-}

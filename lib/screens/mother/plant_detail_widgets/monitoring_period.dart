@@ -9,14 +9,14 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
   final BuildContext context;
   final AppLocalizations l10n;
   final TrackingHistory trackingHistory;
-  final Function(TrackingHistory, AppLocalizations) onUploadTap;
+  final Function(TrackingHistory, AppLocalizations)? onUploadTap;
   final Map<String, dynamic>? localPhoto;
   
   const PlantMonitoringPeriodCard({
     required this.context, 
     required this.l10n, 
     required this.trackingHistory, 
-    required this.onUploadTap, 
+    this.onUploadTap, 
     this.localPhoto,
     Key? key
   }) : super(key: key);
@@ -37,6 +37,9 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w600,
             fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 16, tablet: 18, desktop: 20),
+            color: (trackingHistory.uploadStatus == 'uploaded' || trackingHistory.completedDate != null) 
+              ? Colors.green.shade700 
+              : AppColors.text,
           ),
         ),
         subtitle: Column(
@@ -82,10 +85,23 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
           ),
         ),
         trailing: _buildTrailingWidget(),
-        onTap: (trackingHistory.uploadStatus == 'uploaded' || trackingHistory.completedDate != null) ? null :
-          _canUpload(trackingHistory.uploadStatus, trackingHistory.dueDate)
-            ? () => onUploadTap(trackingHistory, l10n)
-            : null,
+        onTap: () {
+          // If already uploaded, don't allow upload action
+          if (trackingHistory.uploadStatus == 'uploaded' || trackingHistory.completedDate != null) {
+            // Show photo in full screen if available
+            if (trackingHistory.photo != null) {
+              _showPhotoFullScreen(context, trackingHistory.photo!.photoUrl);
+            } else if (localPhoto != null) {
+              _showPhotoFullScreen(context, localPhoto!['imagePath'], isLocal: true);
+            }
+            return;
+          }
+          
+          // Only allow upload if in upload window
+          if (_canUpload(trackingHistory.uploadStatus, trackingHistory.dueDate) && onUploadTap != null) {
+            onUploadTap!(trackingHistory, l10n);
+          }
+        },
       ),
     );
   }
@@ -93,66 +109,116 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
   Widget _buildTrailingWidget() {
     final hasServerPhoto = trackingHistory.uploadStatus == 'uploaded' && trackingHistory.photo != null;
     final hasLocalPhoto = localPhoto != null;
+    final isCompleted = trackingHistory.uploadStatus == 'uploaded' || trackingHistory.completedDate != null;
     
-    // If photo exists (server or local), show photo preview
+    // If photo exists (server or local), show photo preview with view indicator
     if (hasServerPhoto || hasLocalPhoto) {
-      return Container(
-        width: 50,
-        height: 50,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(7),
-          child: hasServerPhoto ? 
-            Image.network(
-              trackingHistory.photo!.photoUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: AppColors.border,
-                  child: Icon(Icons.broken_image, color: AppColors.textSecondary, size: 20),
-                );
-              },
-              loadingBuilder: (context, child, loadingProgress) {
-                if (loadingProgress == null) return child;
-                return Container(
-                  color: AppColors.border,
-                  child: Center(
-                    child: SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                );
-              },
-            ) : 
-            Image.file(
-              File(localPhoto!['imagePath']),
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  color: AppColors.border,
-                  child: Icon(Icons.broken_image, color: AppColors.textSecondary, size: 20),
-                );
-              },
+      return Stack(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.primary.withOpacity(0.3)),
             ),
-        ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(7),
+              child: hasServerPhoto ? 
+                Image.network(
+                  trackingHistory.photo!.photoUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: AppColors.border,
+                      child: Icon(Icons.broken_image, color: AppColors.textSecondary, size: 20),
+                    );
+                  },
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      color: AppColors.border,
+                      child: Center(
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                    );
+                  },
+                ) : 
+                Image.file(
+                  File(localPhoto!['imagePath']),
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      color: AppColors.border,
+                      child: Icon(Icons.broken_image, color: AppColors.textSecondary, size: 20),
+                    );
+                  },
+                ),
+            ),
+          ),
+          // Show completion checkmark if uploaded
+          if (isCompleted)
+            Positioned(
+              top: 2,
+              right: 2,
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1),
+                ),
+                child: Icon(
+                  Icons.check,
+                  color: Colors.white,
+                  size: 10,
+                ),
+              ),
+            ),
+        ],
       );
     }
     
     // If no photo but can upload, show upload button
-    if ((trackingHistory.uploadStatus != 'uploaded' && trackingHistory.completedDate == null) &&
-        _canUpload(trackingHistory.uploadStatus, trackingHistory.dueDate)) {
+    if (!isCompleted && _canUpload(trackingHistory.uploadStatus, trackingHistory.dueDate) && onUploadTap != null) {
       return ElevatedButton.icon(
-        onPressed: () => onUploadTap(trackingHistory, l10n),
+        onPressed: () => onUploadTap!(trackingHistory, l10n),
         icon: Icon(Icons.upload, color: Colors.white),
         label: Text('Upload', style: TextStyle(color: Colors.white)),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.primary,
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        ),
+      );
+    }
+    
+    // For uploaded without photo, show completed status
+    if (isCompleted) {
+      return Container(
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.green.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 16),
+            SizedBox(width: 4),
+            Text(
+              'पूर्ण',
+              style: TextStyle(
+                color: Colors.green,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -238,5 +304,82 @@ Upload window details:
 ''');
     
     return isInUploadWindow;
+  }
+
+  void _showPhotoFullScreen(BuildContext context, String imagePath, {bool isLocal = false}) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          children: [
+            Container(
+              width: double.infinity,
+              height: MediaQuery.of(context).size.height * 0.7,
+              decoration: BoxDecoration(
+                color: Colors.black,
+                borderRadius: ResponsiveUtils.getResponsiveBorderRadius(context),
+              ),
+              child: ClipRRect(
+                borderRadius: ResponsiveUtils.getResponsiveBorderRadius(context),
+                child: InteractiveViewer(
+                  panEnabled: true,
+                  boundaryMargin: EdgeInsets.all(100),
+                  minScale: 0.5,
+                  maxScale: 4.0,
+                  child: isLocal 
+                    ? Image.file(
+                        File(imagePath),
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error, color: Colors.white, size: 48),
+                                SizedBox(height: 16),
+                                Text('फोटो लोड नहीं हो सकी', style: TextStyle(color: Colors.white)),
+                              ],
+                            ),
+                          );
+                        },
+                      )
+                    : Image.network(
+                        imagePath,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.error, color: Colors.white, size: 48),
+                                SizedBox(height: 16),
+                                Text('फोटो लोड नहीं हो सकी', style: TextStyle(color: Colors.white)),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: IconButton(
+                  icon: Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

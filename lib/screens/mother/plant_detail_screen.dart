@@ -3,11 +3,11 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'dart:io';
-import 'dart:typed_data';
 import '../../models/mother_plant_detail_response.dart';
 import '../../utils/theme.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/responsive.dart';
+import '../../utils/image_compression_service.dart';
 import 'plant_detail_widgets/overall_progress.dart';
 import 'plant_detail_widgets/current_status_card.dart';
 import 'plant_detail_widgets/care_instructions.dart';
@@ -83,26 +83,23 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   
   Future<String?> _compressAndSaveImage(XFile imageFile) async {
     try {
-      // Read the original image
-      final Uint8List imageBytes = await imageFile.readAsBytes();
-      final int originalSize = imageBytes.length;
+      print('📸 Starting image compression process...');
       
-      print('Original image size: ${(originalSize / 1024).toStringAsFixed(2)} KB');
+      // Convert XFile to File
+      final File originalFile = File(imageFile.path);
       
-      // Create a new file path for the compressed image
-      final String originalPath = imageFile.path;
-      final String compressedPath = originalPath.replaceAll(RegExp(r'\.(jpg|jpeg|png)$'), '_compressed.jpg');
+      // Use our compression service
+      final File? compressedFile = await ImageCompressionService.compressImage(originalFile);
       
-      // Write the compressed image (the XFile is already compressed by ImagePicker)
-      final File compressedFile = File(compressedPath);
-      await compressedFile.writeAsBytes(imageBytes);
-      
-      print('Compressed image saved to: $compressedPath');
-      print('Final image size: ${(imageBytes.length / 1024).toStringAsFixed(2)} KB');
-      
-      return compressedPath;
+      if (compressedFile != null) {
+        print('✅ Image compression completed successfully');
+        return compressedFile.path;
+      } else {
+        print('⚠️ Compression failed, using original image');
+        return imageFile.path;
+      }
     } catch (e) {
-      print('Error processing image: $e');
+      print('❌ Error processing image: $e');
       return imageFile.path; // Return original path if compression fails
     }
   }
@@ -142,28 +139,20 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
         print('Stats - Overdue: ${data['stats']['overdue']}');
         print('Tracking History Count: ${data['trackingHistory'].length}');
         
-        // Debug: Print full data structure to identify null issues
-        print('=== FULL DATA STRUCTURE DEBUG ===');
-        print('Assignment: ${data['assignment']}');
-        print('Stats: ${data['stats']}');
-        print('TrackingHistory: ${data['trackingHistory']}');
-        print('TrackingSchedules: ${data['trackingSchedules']}');
-        print('=== END DEBUG ===');
-        
-        // Convert the API response to MotherPlantDetailData format
+        // Convert the API response to MotherPlantDetailData format with error handling
         try {
           _plantDetailData = _convertMitaninResponseToPlantDetailData(data);
           setState(() {
             _isLoading = false;
           });
         } catch (conversionError) {
-          print('=== CONVERSION ERROR ===');
-          print('Error: $conversionError');
-          print('Error Type: ${conversionError.runtimeType}');
-          print('Stack: ${StackTrace.current}');
+          print('Data conversion error: $conversionError');
+          // Fallback to basic data structure if conversion fails
           setState(() {
-            _errorMessage = 'Data conversion error: $conversionError';
+            _errorMessage = null;
             _isLoading = false;
+            // Create a minimal plant detail data to prevent crashes
+            _plantDetailData = _createFallbackPlantData(data);
           });
         }
       } else if (!widget.isMitaninUpload && response != null && response.success) {
@@ -204,50 +193,59 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   
   MotherPlantDetailData _convertMitaninResponseToPlantDetailData(Map<String, dynamic> data) {
     // Convert mitanin API response to match MotherPlantDetailData structure
+    print('Converting mitanin response with enhanced safety...');
     try {
-      // Validate input data first
-      if (data.isEmpty) {
-        throw Exception('Empty data received from API');
-      }
-      
       // Helper function to safely convert to int
       int safeInt(dynamic value, int fallback) {
         if (value == null) return fallback;
         if (value is int) return value;
+        if (value is double) return value.toInt();
         if (value is String) return int.tryParse(value) ?? fallback;
         return fallback;
       }
+
+      // Safely extract data with null checks
+      final Map<String, dynamic> assignment = (data['assignment'] is Map) ? Map<String, dynamic>.from(data['assignment']) : {};
+      final Map<String, dynamic> plant = (assignment['plant'] is Map) ? Map<String, dynamic>.from(assignment['plant']) : {};
+      final Map<String, dynamic> stats = (data['stats'] is Map) ? Map<String, dynamic>.from(data['stats']) : {};
       
-      // Safely extract main sections with validation
-      final assignment = data['assignment'];
-      if (assignment == null) {
-        throw Exception('Assignment data is null');
+      // Safely convert lists
+      List<Map<String, dynamic>> trackingHistory = [];
+      if (data['trackingHistory'] is List) {
+        try {
+          trackingHistory = (data['trackingHistory'] as List)
+              .where((item) => item != null)
+              .map((item) => item is Map ? Map<String, dynamic>.from(item) : <String, dynamic>{})
+              .toList();
+        } catch (e) {
+          print('Error processing trackingHistory: $e');
+          trackingHistory = [];
+        }
       }
-      
-      final plant = assignment['plant'];
-      if (plant == null) {
-        throw Exception('Plant data is null');
+
+      List<Map<String, dynamic>> trackingSchedules = [];
+      if (data['trackingSchedules'] is List) {
+        try {
+          trackingSchedules = (data['trackingSchedules'] as List)
+              .where((item) => item != null)
+              .map((item) => item is Map ? Map<String, dynamic>.from(item) : <String, dynamic>{})
+              .toList();
+        } catch (e) {
+          print('Error processing trackingSchedules: $e');
+          trackingSchedules = [];
+        }
       }
-      
-      final stats = data['stats'] ?? {};
-      final trackingHistory = (data['trackingHistory'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-      final trackingSchedules = (data['trackingSchedules'] as List?)?.cast<Map<String, dynamic>>() ?? [];
-      
-      print('=== CONVERSION DEBUG ===');
-      print('Assignment ID: ${assignment['id']}');
-      print('Plant ID: ${plant['id']}');
-      print('Stats: $stats');
-      print('History count: ${trackingHistory.length}');
-      print('Schedules count: ${trackingSchedules.length}');
-      print('=== END CONVERSION DEBUG ===');
       
       // Calculate assigned date from tracking schedules (use first schedule as baseline)
       String assignedDate = DateTime.now().toIso8601String();
       if (trackingSchedules.isNotEmpty) {
-        // Assume assigned date is before first tracking week
-        final firstWeek = safeInt(trackingSchedules.first['week_number'], 1);
-        final baseDate = DateTime.now().subtract(Duration(days: (firstWeek - 1) * 7));
-        assignedDate = baseDate.toIso8601String();
+        try {
+          final firstWeek = safeInt(trackingSchedules.first['week_number'], 1);
+          final baseDate = DateTime.now().subtract(Duration(days: (firstWeek - 1) * 7));
+          assignedDate = baseDate.toIso8601String();
+        } catch (e) {
+          print('Error calculating assigned date: $e');
+        }
       }
       
       // Helper function to calculate due date for a week
@@ -261,10 +259,23 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
       Map<String, dynamic> findMatchingHistory(int weekNumber) {
         try {
           if (weekNumber <= 0) return <String, dynamic>{};
-          return trackingHistory.firstWhere(
-            (h) => safeInt(h['week_number'], 0) == weekNumber, 
+          
+          // Look for tracking schedule with matching week number and check if it's completed
+          final schedule = trackingSchedules.firstWhere(
+            (s) => safeInt(s['week_number'], 0) == weekNumber, 
             orElse: () => <String, dynamic>{}
           );
+          
+          if (schedule.isNotEmpty && schedule['upload_status'] == 'completed') {
+            // Find corresponding photo from trackingHistory (photos list)
+            final photo = trackingHistory.firstWhere(
+              (h) => safeInt(h['week_number'], 0) == weekNumber,
+              orElse: () => <String, dynamic>{}
+            );
+            return photo;
+          }
+          
+          return <String, dynamic>{};
         } catch (e) {
           return <String, dynamic>{};
         }
@@ -301,94 +312,162 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
           'next_due_date': null,
           'days_remaining': null,
         },
-        'tracking_history': trackingHistory.map((item) => {
-          'schedule_id': safeInt(item['id'], 0),
-          'week_number': safeInt(item['week_number'], 0),
-          'month_number': safeInt(item['week_number'], 1) > 0 ? ((safeInt(item['week_number'], 1)) / 4).ceil() : 1,
-          'due_date': calculateDueDate(safeInt(item['week_number'], 1)).toIso8601String(),
-          'upload_status': item['photo_url'] != null ? 'completed' : 'pending',
-          'completed_date': item['created_at'],
-          'remarks': null,
-          'photo': item['photo_url'] != null ? {
-            'id': safeInt(item['id'], 0),
-            'photo_url': item['photo_url'],
-            'latitude': '0.0',
-            'longitude': '0.0',
-            'upload_date': item['created_at'],
-            'remarks': '',
-          } : null,
+        'tracking_history': trackingHistory.map((item) {
+          try {
+            final weekNum = safeInt(item['week_number'], 0);
+            return {
+              'schedule_id': safeInt(item['id'], 0),
+              'week_number': weekNum,
+              'month_number': weekNum > 0 ? ((weekNum / 4).ceil()) : 1,
+              'due_date': calculateDueDate(weekNum > 0 ? weekNum : 1).toIso8601String(),
+              'upload_status': item['photo_url'] != null ? 'completed' : 'pending',
+              'completed_date': item['created_at'],
+              'remarks': null,
+              'photo': item['photo_url'] != null ? {
+                'id': safeInt(item['id'], 0),
+                'photo_url': item['photo_url'],
+                'latitude': '0.0',
+                'longitude': '0.0',
+                'upload_date': item['created_at'],
+                'remarks': '',
+              } : null,
+            };
+          } catch (e) {
+            print('Error processing tracking history item: $e');
+            return {
+              'schedule_id': 0,
+              'week_number': 0,
+              'month_number': 1,
+              'due_date': DateTime.now().toIso8601String(),
+              'upload_status': 'pending',
+              'completed_date': null,
+              'remarks': null,
+              'photo': null,
+            };
+          }
         }).toList(),
         'tracking_history_monthwise': {
           'month1': {
             'title': 'Month 1',
             'description': 'First month tracking',
             'weeks': trackingSchedules.where((s) => safeInt(s['month_number'], 0) == 1).map((s) {
-              final weekNumber = safeInt(s['week_number'], 0);
-              final scheduleId = safeInt(s['id'], weekNumber);
-              final matchingHistory = findMatchingHistory(weekNumber);
-              return {
-                'schedule_id': scheduleId,
-                'week_number': weekNumber,
-                'week_title': 'Week $weekNumber',
-                'due_date': calculateDueDate(weekNumber).toIso8601String(),
-                'assigned_date': assignedDate,
-                'upload_status': matchingHistory.isNotEmpty ? 'completed' : 'pending',
-                'completed_date': matchingHistory['created_at'],
-                'uploaded_date': matchingHistory['created_at'],
-                'remarks': null,
-                'photo': matchingHistory['photo_url'] != null ? {
-                  'photo_url': matchingHistory['photo_url'],
-                  'upload_date': matchingHistory['created_at'],
-                } : null,
-              };
+              try {
+                final weekNumber = safeInt(s['week_number'], 0);
+                final scheduleId = safeInt(s['id'], weekNumber);
+                final uploadStatus = s['upload_status'] ?? 'pending';
+                final matchingHistory = findMatchingHistory(weekNumber);
+                return {
+                  'schedule_id': scheduleId,
+                  'week_number': weekNumber,
+                  'week_title': 'Week $weekNumber',
+                  'due_date': calculateDueDate(weekNumber > 0 ? weekNumber : 1).toIso8601String(),
+                  'assigned_date': assignedDate,
+                  'upload_status': uploadStatus, // Use actual schedule status
+                  'completed_date': s['completed_date'],
+                  'uploaded_date': s['completed_date'],
+                  'remarks': s['remarks'],
+                  'photo': matchingHistory['photo_url'] != null ? {
+                    'photo_url': matchingHistory['photo_url'],
+                    'upload_date': matchingHistory['created_at'],
+                  } : null,
+                };
+              } catch (e) {
+                print('Error processing month 1 week: $e');
+                return {
+                  'schedule_id': 0,
+                  'week_number': 0,
+                  'week_title': 'Week 0',
+                  'due_date': DateTime.now().toIso8601String(),
+                  'assigned_date': assignedDate,
+                  'upload_status': 'pending',
+                  'completed_date': null,
+                  'uploaded_date': null,
+                  'remarks': null,
+                  'photo': null,
+                };
+              }
             }).toList(),
           },
           'month2': {
             'title': 'Month 2',
             'description': 'Second month tracking',
             'weeks': trackingSchedules.where((s) => safeInt(s['month_number'], 0) == 2).map((s) {
-              final weekNumber = safeInt(s['week_number'], 0);
-              final scheduleId = safeInt(s['id'], weekNumber);
-              final matchingHistory = findMatchingHistory(weekNumber);
-              return {
-                'schedule_id': scheduleId,
-                'week_number': weekNumber,
-                'week_title': 'Week $weekNumber',
-                'due_date': calculateDueDate(weekNumber).toIso8601String(),
-                'assigned_date': assignedDate,
-                'upload_status': matchingHistory.isNotEmpty ? 'completed' : 'pending',
-                'completed_date': matchingHistory['created_at'],
-                'uploaded_date': matchingHistory['created_at'],
-                'remarks': null,
-                'photo': matchingHistory['photo_url'] != null ? {
-                  'photo_url': matchingHistory['photo_url'],
-                  'upload_date': matchingHistory['created_at'],
-                } : null,
-              };
+              try {
+                final weekNumber = safeInt(s['week_number'], 0);
+                final scheduleId = safeInt(s['id'], weekNumber);
+                final uploadStatus = s['upload_status'] ?? 'pending';
+                final matchingHistory = findMatchingHistory(weekNumber);
+                return {
+                  'schedule_id': scheduleId,
+                  'week_number': weekNumber,
+                  'week_title': 'Week $weekNumber',
+                  'due_date': calculateDueDate(weekNumber > 0 ? weekNumber : 1).toIso8601String(),
+                  'assigned_date': assignedDate,
+                  'upload_status': uploadStatus, // Use actual schedule status
+                  'completed_date': s['completed_date'],
+                  'uploaded_date': s['completed_date'],
+                  'remarks': s['remarks'],
+                  'photo': matchingHistory['photo_url'] != null ? {
+                    'photo_url': matchingHistory['photo_url'],
+                    'upload_date': matchingHistory['created_at'],
+                  } : null,
+                };
+              } catch (e) {
+                print('Error processing month 2 week: $e');
+                return {
+                  'schedule_id': 0,
+                  'week_number': 0,
+                  'week_title': 'Week 0',
+                  'due_date': DateTime.now().toIso8601String(),
+                  'assigned_date': assignedDate,
+                  'upload_status': 'pending',
+                  'completed_date': null,
+                  'uploaded_date': null,
+                  'remarks': null,
+                  'photo': null,
+                };
+              }
             }).toList(),
           },
           'month3': {
             'title': 'Month 3',
             'description': 'Third month tracking',
             'weeks': trackingSchedules.where((s) => safeInt(s['month_number'], 0) == 3).map((s) {
-              final weekNumber = safeInt(s['week_number'], 0);
-              final scheduleId = safeInt(s['id'], weekNumber);
-              final matchingHistory = findMatchingHistory(weekNumber);
-              return {
-                'schedule_id': scheduleId,
-                'week_number': weekNumber,
-                'week_title': 'Week $weekNumber',
-                'due_date': calculateDueDate(weekNumber).toIso8601String(),
-                'assigned_date': assignedDate,
-                'upload_status': matchingHistory.isNotEmpty ? 'completed' : 'pending',
-                'completed_date': matchingHistory['created_at'],
-                'uploaded_date': matchingHistory['created_at'],
-                'remarks': null,
-                'photo': matchingHistory['photo_url'] != null ? {
-                  'photo_url': matchingHistory['photo_url'],
-                  'upload_date': matchingHistory['created_at'],
-                } : null,
-              };
+              try {
+                final weekNumber = safeInt(s['week_number'], 0);
+                final scheduleId = safeInt(s['id'], weekNumber);
+                final uploadStatus = s['upload_status'] ?? 'pending';
+                final matchingHistory = findMatchingHistory(weekNumber);
+                return {
+                  'schedule_id': scheduleId,
+                  'week_number': weekNumber,
+                  'week_title': 'Week $weekNumber',
+                  'due_date': calculateDueDate(weekNumber > 0 ? weekNumber : 1).toIso8601String(),
+                  'assigned_date': assignedDate,
+                  'upload_status': uploadStatus, // Use actual schedule status
+                  'completed_date': s['completed_date'],
+                  'uploaded_date': s['completed_date'],
+                  'remarks': s['remarks'],
+                  'photo': matchingHistory['photo_url'] != null ? {
+                    'photo_url': matchingHistory['photo_url'],
+                    'upload_date': matchingHistory['created_at'],
+                  } : null,
+                };
+              } catch (e) {
+                print('Error processing month 3 week: $e');
+                return {
+                  'schedule_id': 0,
+                  'week_number': 0,
+                  'week_title': 'Week 0',
+                  'due_date': DateTime.now().toIso8601String(),
+                  'assigned_date': assignedDate,
+                  'upload_status': 'pending',
+                  'completed_date': null,
+                  'uploaded_date': null,
+                  'remarks': null,
+                  'photo': null,
+                };
+              }
             }).toList(),
           },
         },
@@ -397,6 +476,71 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
       print('Error converting mitanin response: $e');
       print('Data structure: $data');
       rethrow; // Re-throw to see the actual error
+    }
+  }
+
+  // Fallback method to create basic plant data when conversion fails
+  MotherPlantDetailData _createFallbackPlantData(Map<String, dynamic> data) {
+    try {
+      final assignment = data['assignment'] ?? {};
+      final plant = assignment['plant'] ?? {};
+      final stats = data['stats'] ?? {};
+      
+      return MotherPlantDetailData.fromJson({
+        'assignment': {
+          'id': assignment['id'] ?? 0,
+          'assigned_date': DateTime.now().toIso8601String(),
+          'status': assignment['status'] ?? 'active',
+          'plant': {
+            'id': plant['id'] ?? 0,
+            'name': plant['name'] ?? 'Plant',
+            'species': plant['species'] ?? '',
+            'local_name': plant['localName'] ?? '',
+            'description': '',
+            'care_instructions': '',
+          },
+          'child': {
+            'id': assignment['child_id'] ?? 0,
+            'child_name': 'Child',
+            'mother_name': 'Mother',
+            'mother_mobile': '0000000000',
+          }
+        },
+        'stats': {
+          'total_schedules': stats['totalSchedules'] ?? 0,
+          'completed': stats['completed'] ?? 0,
+          'pending': stats['pending'] ?? 0,
+          'overdue': stats['overdue'] ?? 0,
+          'completion_percentage': 0,
+          'next_due_date': null,
+          'days_remaining': null,
+        },
+        'tracking_history': [],
+        'tracking_history_monthwise': {
+          'month1': {'title': 'Month 1', 'description': 'First month', 'weeks': []},
+          'month2': {'title': 'Month 2', 'description': 'Second month', 'weeks': []},
+          'month3': {'title': 'Month 3', 'description': 'Third month', 'weeks': []},
+        },
+      });
+    } catch (e) {
+      print('Even fallback creation failed: $e');
+      // Return absolute minimal data
+      return MotherPlantDetailData.fromJson({
+        'assignment': {
+          'id': 0,
+          'assigned_date': DateTime.now().toIso8601String(),
+          'status': 'active',
+          'plant': {'id': 0, 'name': 'Plant', 'species': '', 'local_name': '', 'description': '', 'care_instructions': ''},
+          'child': {'id': 0, 'child_name': 'Child', 'mother_name': 'Mother', 'mother_mobile': '0000000000'}
+        },
+        'stats': {'total_schedules': 0, 'completed': 0, 'pending': 0, 'overdue': 0, 'completion_percentage': 0, 'next_due_date': null, 'days_remaining': null},
+        'tracking_history': [],
+        'tracking_history_monthwise': {
+          'month1': {'title': 'Month 1', 'description': 'First month', 'weeks': []},
+          'month2': {'title': 'Month 2', 'description': 'Second month', 'weeks': []},
+          'month3': {'title': 'Month 3', 'description': 'Third month', 'weeks': []},
+        },
+      });
     }
   }
   
@@ -789,7 +933,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
     final localPhoto = _getLocalPhotoForWeek(week.weekNumber, monthNumber);
 
     // If photo exists (server or local), make card clickable to show photo details
-    if ((week.uploadStatus.toLowerCase() == 'uploaded' && week.photo != null) || localPhoto != null) {
+    if ((week.uploadStatus.toLowerCase() == 'completed' && week.photo != null) || localPhoto != null) {
       return GestureDetector(
         onTap: () => _showPhotoDetails(week, l10n, monthNumber),
         child: PlantMonitoringPeriodCard(
@@ -797,9 +941,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
           l10n: l10n,
           trackingHistory: trackingHistory,
           localPhoto: localPhoto,
-          onUploadTap: (history, l10n) {
-            _showUploadPhotoPopup(context, assignmentId, history.weekNumber, monthNumber);
-          },
+          onUploadTap: null, // Disable upload when photo already exists
         ),
       );
     }
@@ -1221,18 +1363,73 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                                       icon: Icon(Icons.camera_alt),
                                       label: Text('कैमरा से फोटो लें'),
                                       onPressed: () async {
-                                        final XFile? photo = await _picker.pickImage(
-                                          source: ImageSource.camera, 
-                                          imageQuality: 60, // Improved compression
-                                          maxWidth: 800,   // Reduced size
-                                          maxHeight: 800,  // Reduced size
-                                        );
-                                        if (photo != null) {
-                                          // Compress and save the image
-                                          final String? compressedPath = await _compressAndSaveImage(photo);
-                                          setState(() {
-                                            imagePath = compressedPath ?? photo.path;
-                                          });
+                                        try {
+                                          // Show loading dialog
+                                          showDialog(
+                                            context: context,
+                                            barrierDismissible: false,
+                                            builder: (context) => Center(
+                                              child: Container(
+                                                padding: EdgeInsets.all(20),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                ),
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    CircularProgressIndicator(color: AppColors.primary),
+                                                    SizedBox(height: 16),
+                                                    Text('फोटो को process कर रहे हैं...'),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          );
+
+                                          final XFile? photo = await _picker.pickImage(
+                                            source: ImageSource.camera, 
+                                            imageQuality: 90,
+                                            maxWidth: 1920,
+                                            maxHeight: 1920,
+                                          );
+                                          
+                                          if (photo != null) {
+                                            // Compress and save the image
+                                            final String? compressedPath = await _compressAndSaveImage(photo);
+                                            
+                                            // Close loading dialog
+                                            Navigator.pop(context);
+                                            
+                                            setState(() {
+                                              imagePath = compressedPath ?? photo.path;
+                                            });
+                                            
+                                            // Show success message
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('फोटो सफलतापूर्वक तैयार की गई'),
+                                                backgroundColor: AppColors.success,
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          } else {
+                                            // Close loading dialog
+                                            Navigator.pop(context);
+                                          }
+                                        } catch (e) {
+                                          // Close loading dialog if open
+                                          if (Navigator.canPop(context)) {
+                                            Navigator.pop(context);
+                                          }
+                                          
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('फोटो लेने में समस्या: $e'),
+                                              backgroundColor: AppColors.error,
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
                                         }
                                       },
                                     ),
@@ -1241,18 +1438,73 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                                       icon: Icon(Icons.photo_library),
                                       label: Text('गैलरी से फोटो चुनें'),
                                       onPressed: () async {
-                                        final XFile? photo = await _picker.pickImage(
-                                          source: ImageSource.gallery, 
-                                          imageQuality: 60, // Improved compression
-                                          maxWidth: 800,   // Reduced size
-                                          maxHeight: 800,  // Reduced size
-                                        );
-                                        if (photo != null) {
-                                          // Compress and save the image
-                                          final String? compressedPath = await _compressAndSaveImage(photo);
-                                          setState(() {
-                                            imagePath = compressedPath ?? photo.path;
-                                          });
+                                        try {
+                                          // Show loading dialog
+                                          showDialog(
+                                            context: context,
+                                            barrierDismissible: false,
+                                            builder: (context) => Center(
+                                              child: Container(
+                                                padding: EdgeInsets.all(20),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(10),
+                                                ),
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    CircularProgressIndicator(color: AppColors.primary),
+                                                    SizedBox(height: 16),
+                                                    Text('फोटो को process कर रहे हैं...'),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          );
+
+                                          final XFile? photo = await _picker.pickImage(
+                                            source: ImageSource.gallery, 
+                                            imageQuality: 90,
+                                            maxWidth: 1920,
+                                            maxHeight: 1920,
+                                          );
+                                          
+                                          if (photo != null) {
+                                            // Compress and save the image
+                                            final String? compressedPath = await _compressAndSaveImage(photo);
+                                            
+                                            // Close loading dialog
+                                            Navigator.pop(context);
+                                            
+                                            setState(() {
+                                              imagePath = compressedPath ?? photo.path;
+                                            });
+                                            
+                                            // Show success message
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('फोटो सफलतापूर्वक तैयार की गई'),
+                                                backgroundColor: AppColors.success,
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          } else {
+                                            // Close loading dialog
+                                            Navigator.pop(context);
+                                          }
+                                        } catch (e) {
+                                          // Close loading dialog if open
+                                          if (Navigator.canPop(context)) {
+                                            Navigator.pop(context);
+                                          }
+                                          
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('फोटो चुनने में समस्या: $e'),
+                                              backgroundColor: AppColors.error,
+                                              duration: Duration(seconds: 2),
+                                            ),
+                                          );
                                         }
                                       },
                                     ),
@@ -1445,12 +1697,21 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                           });
 
                           if (response['success']) {
+                            print('=== Upload Success Debug ===');
+                            print('Full response: $response');
+                            if (response['data'] != null) {
+                              print('Response data: ${response['data']}');
+                              if (response['data']['updated_schedule'] != null) {
+                                print('Updated schedule: ${response['data']['updated_schedule']}');
+                                print('Status from backend: ${response['data']['updated_schedule']['upload_status']}');
+                              }
+                            }
+                            print('============================');
+                            
                             // Mark local photo as uploaded
                             await LocalStorageService.markPhotoAsUploaded(assignmentId, weekNumber, monthNumber);
                             // Refresh local photos
                             await _loadLocalPhotos();
-                            // Refresh plant details from server
-                            await _fetchPlantDetails();
                             Navigator.pop(context);
                             _showUploadSuccessPopup(context, response['data'], aiResult);
                           } else {
@@ -1471,20 +1732,34 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
 
   // Helper: Show upload success popup
   void _showUploadSuccessPopup(BuildContext context, Map<String, dynamic> data, [Map<String, dynamic>? aiResult]) {
-    final photo = data['photo'];
-    final updatedSchedule = data['updated_schedule'];
-    final stats = data['tracking_stats'];
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            Icon(Icons.check_circle, color: AppColors.success, size: 28),
-            SizedBox(width: 8),
-            Text('अपलोड सफल', style: TextStyle(color: AppColors.success)),
-          ],
-        ),
+    try {
+      final photo = data['photo'];
+      final updatedSchedule = data['updated_schedule'];
+      final stats = data['tracking_stats'];
+      
+      // Debug logging
+      print('Success popup data: $data');
+      print('Updated schedule: $updatedSchedule');
+      print('Updated schedule status: ${updatedSchedule?['status']}');
+      print('Updated schedule upload_status: ${updatedSchedule?['upload_status']}');
+      
+      // Safe extraction function
+      String safeToString(dynamic value, String fallback) {
+        if (value == null) return fallback;
+        return value.toString();
+      }
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.check_circle, color: AppColors.success, size: 28),
+              SizedBox(width: 8),
+              Text('अपलोड सफल', style: TextStyle(color: AppColors.success)),
+            ],
+          ),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1499,12 +1774,12 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                 SizedBox(height: 12),
               ],
               if (photo != null) ...[
-                _buildSuccessDetailRow(Icons.image, 'फोटो ID', photo['id'].toString()),
-                _buildSuccessDetailRow(Icons.location_on, 'Latitude', photo['latitude'].toString()),
-                _buildSuccessDetailRow(Icons.location_on, 'Longitude', photo['longitude'].toString()),
-                _buildSuccessDetailRow(Icons.date_range, 'Upload Date', photo['upload_date'].toString()),
-                if (photo['remarks'] != null && photo['remarks'].toString().isNotEmpty)
-                  _buildSuccessDetailRow(Icons.comment, 'Remarks', photo['remarks'].toString()),
+                _buildSuccessDetailRow(Icons.image, 'फोटो ID', safeToString(photo['id'], 'N/A')),
+                _buildSuccessDetailRow(Icons.location_on, 'Latitude', safeToString(photo['latitude'], '0')),
+                _buildSuccessDetailRow(Icons.location_on, 'Longitude', safeToString(photo['longitude'], '0')),
+                _buildSuccessDetailRow(Icons.date_range, 'Upload Date', safeToString(photo['upload_date'], 'Unknown')),
+                if (photo['remarks'] != null && safeToString(photo['remarks'], '').isNotEmpty)
+                  _buildSuccessDetailRow(Icons.comment, 'Remarks', safeToString(photo['remarks'], '')),
               ],
               Divider(),
               // Show AI results only if AI correctly predicted the plant
@@ -1565,19 +1840,19 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                 ),
               ],
               if (updatedSchedule != null) ...[
-                _buildSuccessDetailRow(Icons.event, 'Schedule ID', updatedSchedule['schedule_id'].toString()),
-                _buildSuccessDetailRow(Icons.calendar_today, 'Week Number', updatedSchedule['week_number'].toString()),
-                _buildSuccessDetailRow(Icons.calendar_view_month, 'Month Number', updatedSchedule['month_number'].toString()),
-                _buildSuccessDetailRow(Icons.info, 'Status', updatedSchedule['status'].toString()),
+                _buildSuccessDetailRow(Icons.event, 'Schedule ID', safeToString(updatedSchedule['schedule_id'], 'N/A')),
+                _buildSuccessDetailRow(Icons.calendar_today, 'Week Number', safeToString(updatedSchedule['week_number'], 'N/A')),
+                _buildSuccessDetailRow(Icons.calendar_view_month, 'Month Number', safeToString(updatedSchedule['month_number'], 'N/A')),
+                _buildSuccessDetailRow(Icons.info, 'स्थिति', _getStatusDisplayText(safeToString(updatedSchedule['upload_status'], 'N/A'))),
               ],
               Divider(),
               if (stats != null) ...[
-                _buildSuccessDetailRow(Icons.list, 'Total Schedules', stats['total_schedules'].toString()),
-                _buildSuccessDetailRow(Icons.check, 'Completed', stats['completed'].toString()),
-                _buildSuccessDetailRow(Icons.pending, 'Pending', stats['pending'].toString()),
-                _buildSuccessDetailRow(Icons.error, 'Overdue', stats['overdue'].toString()),
-                _buildSuccessDetailRow(Icons.calendar_today, 'Next Due Date', stats['next_due_date'].toString()),
-                _buildSuccessDetailRow(Icons.timelapse, 'Days Remaining', stats['days_remaining'].toString()),
+                _buildSuccessDetailRow(Icons.list, 'Total Schedules', safeToString(stats['total_schedules'], '0')),
+                _buildSuccessDetailRow(Icons.check, 'Completed', safeToString(stats['completed'], '0')),
+                _buildSuccessDetailRow(Icons.pending, 'Pending', safeToString(stats['pending'], '0')),
+                _buildSuccessDetailRow(Icons.error, 'Overdue', safeToString(stats['overdue'], '0')),
+                _buildSuccessDetailRow(Icons.calendar_today, 'Next Due Date', safeToString(stats['next_due_date'], 'N/A')),
+                _buildSuccessDetailRow(Icons.timelapse, 'Days Remaining', safeToString(stats['days_remaining'], 'N/A')),
               ],
             ],
           ),
@@ -1593,6 +1868,45 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
         ],
       ),
     );
+    } catch (e) {
+      print('Error in upload success popup: $e');
+      // Show fallback popup
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.check_circle, color: AppColors.success, size: 28),
+              SizedBox(width: 8),
+              Text('अपलोड सफल', style: TextStyle(color: AppColors.success)),
+            ],
+          ),
+          content: Text('आपकी फोटो सफलतापूर्वक अपलोड हो गई है।'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _fetchPlantDetails(); // Refresh page after upload success
+              },
+              child: Text('ठीक है'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  String _getStatusDisplayText(String status) {
+    switch (status.toLowerCase()) {
+      case 'completed':
+        return 'अपलोड हो गया';
+      case 'pending':
+        return 'लंबित';
+      case 'overdue':
+        return 'समय से अधिक';
+      default:
+        return status;
+    }
   }
 
   Widget _buildSuccessDetailRow(IconData icon, String label, String value) {

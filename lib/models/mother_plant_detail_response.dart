@@ -60,11 +60,11 @@ class Assignment {
 
   factory Assignment.fromJson(Map<String, dynamic> json) {
     return Assignment(
-      id: json['id'],
-      assignedDate: json['assigned_date'],
-      status: json['status'],
-      plant: Plant.fromJson(json['plant']),
-      child: Child.fromJson(json['child']),
+      id: json['id'] ?? 0,
+      assignedDate: json['assigned_date'] ?? '',
+      status: json['status'] ?? '',
+      plant: Plant.fromJson(json['plant'] ?? {}),
+      child: Child.fromJson(json['child'] ?? {}),
     );
   }
 }
@@ -88,12 +88,12 @@ class Plant {
 
   factory Plant.fromJson(Map<String, dynamic> json) {
     return Plant(
-      id: json['id'],
-      name: json['name'],
-      species: json['species'],
-      localName: json['local_name'],
-      description: json['description'],
-      careInstructions: json['care_instructions'],
+      id: json['id'] ?? 0,
+      name: json['name'] ?? '',
+      species: json['species'] ?? '',
+      localName: json['local_name'] ?? '',
+      description: json['description'] ?? '',
+      careInstructions: json['care_instructions'] ?? '',
     );
   }
 }
@@ -113,10 +113,10 @@ class Child {
 
   factory Child.fromJson(Map<String, dynamic> json) {
     return Child(
-      id: json['id'],
-      childName: json['child_name'],
-      motherName: json['mother_name'],
-      motherMobile: json['mother_mobile'],
+      id: json['id'] ?? 0,
+      childName: json['child_name'] ?? '',
+      motherName: json['mother_name'] ?? '',
+      motherMobile: json['mother_mobile'] ?? '',
     );
   }
 }
@@ -142,11 +142,11 @@ class PlantStats {
 
   factory PlantStats.fromJson(Map<String, dynamic> json) {
     return PlantStats(
-      totalSchedules: json['total_schedules'],
-      completed: json['completed'],
-      pending: json['pending'],
-      overdue: json['overdue'],
-      completionPercentage: json['completion_percentage'],
+      totalSchedules: json['total_schedules'] ?? 0,
+      completed: json['completed'] ?? 0,
+      pending: json['pending'] ?? 0,
+      overdue: json['overdue'] ?? 0,
+      completionPercentage: json['completion_percentage'] ?? 0,
       nextDueDate: json['next_due_date'],
       daysRemaining: json['days_remaining'],
     );
@@ -176,11 +176,11 @@ class TrackingHistory {
 
   factory TrackingHistory.fromJson(Map<String, dynamic> json) {
     return TrackingHistory(
-      scheduleId: json['schedule_id'],
-      weekNumber: json['week_number'],
-      monthNumber: json['month_number'],
-      dueDate: json['due_date'],
-      uploadStatus: json['upload_status'],
+      scheduleId: json['schedule_id'] ?? 0,
+      weekNumber: json['week_number'] ?? 0,
+      monthNumber: json['month_number'] ?? 0,
+      dueDate: json['due_date'] ?? '',
+      uploadStatus: json['upload_status'] ?? '',
       completedDate: json['completed_date'],
       remarks: json['remarks'],
       photo: json['photo'] != null ? Photo.fromJson(json['photo']) : null,
@@ -207,12 +207,12 @@ class Photo {
 
   factory Photo.fromJson(Map<String, dynamic> json) {
     return Photo(
-      id: json['id'],
-      photoUrl: json['photo_url'],
-      latitude: json['latitude'],
-      longitude: json['longitude'],
-      uploadDate: json['upload_date'],
-      remarks: json['remarks'],
+      id: json['id'] ?? 0,
+      photoUrl: json['photo_url'] ?? '',
+      latitude: json['latitude'] ?? '',
+      longitude: json['longitude'] ?? '',
+      uploadDate: json['upload_date'] ?? '',
+      remarks: json['remarks'] ?? '',
     );
   }
 }
@@ -230,9 +230,9 @@ class TrackingHistoryMonthwise {
 
   factory TrackingHistoryMonthwise.fromJson(Map<String, dynamic> json) {
     return TrackingHistoryMonthwise(
-      month1: MonthwiseDetail.fromJson(json['month1']),
-      month2: MonthwiseDetail.fromJson(json['month2']),
-      month3: MonthwiseDetail.fromJson(json['month3']),
+      month1: MonthwiseDetail.fromJson(json['month1'] ?? {}),
+      month2: MonthwiseDetail.fromJson(json['month2'] ?? {}),
+      month3: MonthwiseDetail.fromJson(json['month3'] ?? {}),
     );
   }
 }
@@ -250,9 +250,11 @@ class MonthwiseDetail {
 
   factory MonthwiseDetail.fromJson(Map<String, dynamic> json) {
     return MonthwiseDetail(
-      title: json['title'],
-      description: json['description'],
-      weeks: (json['weeks'] as List).map((e) => WeekDetail.fromJson(e)).toList(),
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      weeks: json['weeks'] != null 
+          ? (json['weeks'] as List).map((e) => WeekDetail.fromJson(e)).toList()
+          : [],
     );
   }
 }
@@ -284,12 +286,12 @@ class WeekDetail {
 
   factory WeekDetail.fromJson(Map<String, dynamic> json) {
     return WeekDetail(
-      scheduleId: json['schedule_id'],
-      weekNumber: json['week_number'],
-      weekTitle: json['week_title'],
-      dueDate: json['due_date'],
-      assignedDate: json['assigned_date'],
-      uploadStatus: json['upload_status'],
+      scheduleId: json['schedule_id'] ?? 0,
+      weekNumber: json['week_number'] ?? 0,
+      weekTitle: json['week_title'] ?? '',
+      dueDate: json['due_date'] ?? '',
+      assignedDate: json['assigned_date'] ?? '',
+      uploadStatus: json['upload_status'] ?? '',
       completedDate: json['completed_date'],
       uploadedDate: json['uploaded_date'],
       remarks: json['remarks'],

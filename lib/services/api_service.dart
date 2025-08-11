@@ -692,7 +692,7 @@ class ApiService {
         final result = {
           'success': true,
           'message': decoded['message'] ?? 'Photo uploaded successfully by mitanin',
-          'data': decoded
+          'data': decoded['data'] ?? decoded  // Use nested data if available, otherwise whole response
         };
         print('[API RESPONSE] Final Result: $result');
         print('=== MITANIN PHOTO UPLOAD API REQUEST END (SUCCESS) ===');
