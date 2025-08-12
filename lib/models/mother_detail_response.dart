@@ -278,6 +278,12 @@ class PlantTrackingInfo {
   final String? trackingDuration;
   final String? photoFrequency;
   final List<PlantAssignment> assignments;
+  final int? uploadedPhotos;
+  final int? pendingPhotos;
+  final int? overduePhotos;
+  final int? expectedPhotos;
+  final int? missedPhotos;
+  final int? completionPercentage;
 
   PlantTrackingInfo({
     required this.totalAssignments,
@@ -285,6 +291,12 @@ class PlantTrackingInfo {
     this.trackingDuration,
     this.photoFrequency,
     required this.assignments,
+    this.uploadedPhotos,
+    this.pendingPhotos,
+    this.overduePhotos,
+    this.expectedPhotos,
+    this.missedPhotos,
+    this.completionPercentage,
   });
 
   factory PlantTrackingInfo.fromJson(Map<String, dynamic> json) {
@@ -295,6 +307,12 @@ class PlantTrackingInfo {
       photoFrequency: json['photo_frequency'],
       assignments: (json['assignments'] as List<dynamic>? ?? [])
           .map((e) => PlantAssignment.fromJson(e)).toList(),
+      uploadedPhotos: json['uploaded_photos'],
+      pendingPhotos: json['pending_photos'], 
+      overduePhotos: json['overdue_photos'],
+      expectedPhotos: json['expected_photos'],
+      missedPhotos: json['missed_photos'],
+      completionPercentage: json['completion_percentage'],
     );
   }
 }

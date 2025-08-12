@@ -318,20 +318,20 @@ class _MothersListScreenState extends State<MothersListScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                                 children: [
                                   _buildPhotoSummaryItem(
-                                    'अपलोड की गई',
-                                    '${data.plantTrackingInfo.totalSchedules}',
+                                    'अपलोड',
+                                    '${data.plantTrackingInfo.uploadedPhotos ?? 0}',
                                     Icons.photo,
                                     Colors.green,
                                   ),
                                   _buildPhotoSummaryItem(
-                                    'अपेक्षित',
-                                    '${_calculateExpectedPhotos(data.plantTrackingInfo)}',
-                                    Icons.photo_outlined,
+                                    'बची',
+                                    '${data.plantTrackingInfo.pendingPhotos ?? 0}',
+                                    Icons.pending,
                                     Colors.blue,
                                   ),
                                   _buildPhotoSummaryItem(
-                                    'छूटी हुई',
-                                    '${_calculateMissedPhotos(data.plantTrackingInfo)}',
+                                    'छूटी',
+                                    '${data.plantTrackingInfo.missedPhotos ?? 0}',
                                     Icons.warning,
                                     Colors.red,
                                   ),
@@ -459,19 +459,6 @@ class _MothersListScreenState extends State<MothersListScreen> {
     );
   }
 
-  int _calculateExpectedPhotos(PlantTrackingInfo plantTrackingInfo) {
-    // Calculate expected photos based on plant assignments and tracking duration
-    // For simplicity, assume 8 photos per plant (4 in month 1, 4 in months 2-3)
-    return plantTrackingInfo.totalAssignments * 8;
-  }
-
-  int _calculateMissedPhotos(PlantTrackingInfo plantTrackingInfo) {
-    // Calculate missed photos as the difference between expected and uploaded
-    int expected = _calculateExpectedPhotos(plantTrackingInfo);
-    int uploaded = plantTrackingInfo.totalSchedules;
-    return (expected - uploaded).clamp(0, expected);
-  }
-
   Widget _buildPhotoCountChip(String label, String count, IconData icon, Color color) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -505,44 +492,6 @@ class _MothersListScreenState extends State<MothersListScreen> {
         ],
       ),
     );
-  }
-
-  int _calculateExpectedPhotosForMother(MotherListItem mother) {
-    // Calculate expected photos based on delivery date and current date
-    final deliveryDate = DateTime.parse(mother.deliveryDate);
-    final currentDate = DateTime.now();
-    final daysSinceDelivery = currentDate.difference(deliveryDate).inDays;
-    
-    // Get total plants assigned to this mother
-    final totalPlants = mother.totalPlants ?? mother.plantQuantityList.length;
-    if (totalPlants == 0) return 0;
-    
-    // Green Palna tracking is for 3 months (90 days)
-    // Month 1: Weekly photos (4 photos)
-    // Month 2: Bi-weekly photos (2 photos)  
-    // Month 3: Bi-weekly photos (2 photos)
-    // Total expected: 8 photos per plant
-    
-    if (daysSinceDelivery < 0) return 0;
-    if (daysSinceDelivery > 90) return totalPlants * 8; // Full 3 months completed
-    
-    int expectedPhotosPerPlant = 0;
-    
-    // Month 1 (0-30 days): Weekly photos
-    if (daysSinceDelivery >= 7) expectedPhotosPerPlant += 1;
-    if (daysSinceDelivery >= 14) expectedPhotosPerPlant += 1;
-    if (daysSinceDelivery >= 21) expectedPhotosPerPlant += 1;
-    if (daysSinceDelivery >= 28) expectedPhotosPerPlant += 1;
-    
-    // Month 2 (31-60 days): Bi-weekly photos
-    if (daysSinceDelivery >= 42) expectedPhotosPerPlant += 1;
-    if (daysSinceDelivery >= 56) expectedPhotosPerPlant += 1;
-    
-    // Month 3 (61-90 days): Bi-weekly photos
-    if (daysSinceDelivery >= 70) expectedPhotosPerPlant += 1;
-    if (daysSinceDelivery >= 84) expectedPhotosPerPlant += 1;
-    
-    return totalPlants * expectedPhotosPerPlant;
   }
 
   Widget _buildDetailRow(String label, String value) {
@@ -660,12 +609,10 @@ class _MothersListScreenState extends State<MothersListScreen> {
   Widget _buildMotherCard(MotherListItem mother, AppLocalizations l10n) {
     final isMale = mother.childGender == 'male';
     
-    // Use actual photo counts from API data
-    final uploadedPhotos = mother.uploadedPhotos ?? 0;
-    final totalPlants = mother.totalPlants ?? mother.plantQuantityList.length;
-    final expectedPhotos = _calculateExpectedPhotosForMother(mother);
-    final pendingPhotos = (expectedPhotos - uploadedPhotos).clamp(0, expectedPhotos);
-    final missedPhotos = 0; // For now, calculate this based on overdue schedules
+    // Use actual photo counts from backend API data
+    final uploadedPhotos = mother.plantTracking.uploadedPhotos;
+    final pendingPhotos = mother.plantTracking.pendingPhotos;
+    final missedPhotos = mother.plantTracking.missedPhotos;
     
     return AnimatedContainer(
       duration: Duration(milliseconds: 300),
