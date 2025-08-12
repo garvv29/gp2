@@ -59,11 +59,13 @@ class UploadedPhoto {
   factory UploadedPhoto.fromJson(Map<String, dynamic> json) {
     return UploadedPhoto(
       id: json['id'] ?? 0,
-      photoUrl: json['photo_url'] ?? '',
-      fullUrl: json['full_url'] ?? '',
-      uploadDate: json['upload_date'] != null 
-          ? DateTime.parse(json['upload_date'])
-          : DateTime.now(),
+      photoUrl: json['photoUrl'] ?? json['photo_url'] ?? '',
+      fullUrl: json['fullUrl'] ?? json['full_url'] ?? '',
+      uploadDate: json['uploadDate'] != null 
+          ? DateTime.parse(json['uploadDate'])
+          : (json['upload_date'] != null 
+              ? DateTime.parse(json['upload_date'])
+              : DateTime.now()),
       notes: json['notes'],
       assignment: PhotoAssignment.fromJson(json['assignment'] ?? {}),
       uploadedBy: UploadedByUser.fromJson(json['uploadedBy'] ?? {}),
@@ -109,9 +111,9 @@ class PhotoChild {
   factory PhotoChild.fromJson(Map<String, dynamic> json) {
     return PhotoChild(
       id: json['id'] ?? 0,
-      childName: json['child_name'] ?? '',
-      motherName: json['mother_name'] ?? '',
-      motherMobile: json['mother_mobile'] ?? '',
+      childName: json['childName'] ?? json['child_name'] ?? '',
+      motherName: json['motherName'] ?? json['mother_name'] ?? '',
+      motherMobile: json['motherMobile'] ?? json['mother_mobile'] ?? '',
       dob: json['dob'] != null ? DateTime.parse(json['dob']) : null,
     );
   }
@@ -129,7 +131,7 @@ class PhotoPlant {
   factory PhotoPlant.fromJson(Map<String, dynamic> json) {
     return PhotoPlant(
       id: json['id'] ?? 0,
-      name: json['name'] ?? '',
+      name: json['name'] ?? json['plantName'] ?? json['plant_name'] ?? '',
     );
   }
 }
