@@ -333,7 +333,7 @@ class ApiService {
   static Future<MotherPhotosData?> getMotherPhotos(int childId) async {
     try {
       final token = await _getToken();
-      final url = Uri.parse('${AppConstants.baseUrl}/hospital/mothers/$childId/photos');
+      final url = Uri.parse('${AppConstants.baseUrl}/mother/photos');
       
       print('[API REQUEST] GET: $url');
       
