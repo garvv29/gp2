@@ -135,6 +135,7 @@ class _SplashScreenState extends State<SplashScreen>
           dashboard = HospitalDashboard();
           break;
         case 'aww':
+        case 'mitanin':  // Add mitanin case
           dashboard = AWWDashboard();
           break;
         case 'mother':

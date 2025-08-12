@@ -82,7 +82,24 @@ class AuthService {
     final prefs = await SharedPreferences.getInstance();
     final userData = prefs.getString('user_data');
     if (userData != null) {
-      return User.fromJson(jsonDecode(userData));
+      try {
+        final Map<String, dynamic> userMap = jsonDecode(userData);
+        // Convert from ApiUser format to User format
+        return User(
+          id: userMap['userid']?.toString() ?? userMap['id']?.toString() ?? '',
+          phone: userMap['mobile']?.toString() ?? userMap['phone']?.toString() ?? '',
+          role: userMap['role'] is String 
+            ? userMap['role'] 
+            : (userMap['role']?['name'] ?? ''),
+          name: userMap['name'] ?? '',
+          createdAt: DateTime.now(), // fallback
+        );
+      } catch (e) {
+        print('Error parsing user data: $e');
+        // Clear corrupted data
+        await prefs.remove('user_data');
+        return null;
+      }
     }
     return null;
   }
