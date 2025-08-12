@@ -282,7 +282,7 @@ class _MotherDashboardState extends State<MotherDashboard> {
                     SizedBox(width: ResponsiveUtils.getResponsiveGap(context, mobile: 3, tablet: 4, desktop: 6)),
                     Expanded(
                       child: _buildPlantProgressStat(
-                        'लक्षित',
+                        'लंबित',
                         plant.overallProgress.photosPending.toString(),
                         AppColors.warning,
                       ),

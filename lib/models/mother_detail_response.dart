@@ -63,6 +63,9 @@ class ChildInfo {
   final String registrationDate;
   final String lastUpdated;
   final bool isActive;
+  final String? villageName;
+  final String? userVillage;
+  final String? userAddress;
 
   ChildInfo({
     required this.childId,
@@ -80,6 +83,9 @@ class ChildInfo {
     required this.registrationDate,
     required this.lastUpdated,
     required this.isActive,
+    this.villageName,
+    this.userVillage,
+    this.userAddress,
   });
 
   factory ChildInfo.fromJson(Map<String, dynamic> json) {
@@ -99,6 +105,9 @@ class ChildInfo {
       registrationDate: json['registration_date'] ?? '',
       lastUpdated: json['last_updated'] ?? '',
       isActive: json['is_active'] ?? false,
+      villageName: json['village_name'],
+      userVillage: json['user_village'],
+      userAddress: json['user_address'],
     );
   }
 }

@@ -1041,6 +1041,8 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
         weightAtBirth: _weightAtBirthController.text,
         districtLgdCode: _selectedDistrict!,
         blockLgdCode: _selectedBlock!,
+        village: _villageController.text,
+        address: _addressController.text,
         plantQuantity: plantQuantity,
         birthCertificate: _selectedBirthCertificate!,
         pmmvy: _selectedPmmvy!,

@@ -43,48 +43,8 @@ class _HospitalDashboardState extends State<HospitalDashboard> {
         _activePlants = _dashboardCounters!.activePlants;
         _photosUploaded = _dashboardCounters!.uploadedPhotos;
         
-        // Calculate plants with pending reviews based on actual photo upload progress
-        // 
-        // Expected photos per plant over 3 months:
-        // - Month 1: 4 photos (weekly)
-        // - Month 2-3: 4 photos (bi-weekly) 
-        // - Total: 8 photos per plant over 3 months
-        // 
-        // Logic: Calculate how many plants are behind schedule
-        
-        if (_activePlants > 0) {
-          // Simple and realistic logic: Show actual plants that need photos
-          
-          if (_photosUploaded >= _activePlants) {
-            // If we have 1+ photos per plant on average, most plants have at least one photo
-            // At this stage, focus on plants that might need additional photos or follow-up
-            double photosPerPlant = _photosUploaded / _activePlants;
-            
-            if (photosPerPlant >= 8.0) {
-              // Excellent compliance - all expected photos done, minimal review needed
-              _reviewsPending = (_activePlants * 0.05).round(); // 5% might need quality review
-            } else if (photosPerPlant >= 4.0) {
-              // Good progress - first month completed, some need month 2-3 photos
-              _reviewsPending = (_activePlants * 0.3).round(); // 30% need additional photos
-            } else if (photosPerPlant >= 2.0) {
-              // Moderate progress - some plants ahead, others behind
-              _reviewsPending = (_activePlants * 0.5).round(); // 50% need more photos
-            } else {
-              // Early stage but some plants have photos - focus on the ones without any
-              _reviewsPending = (_activePlants * 0.7).round(); // 70% still need more photos
-            }
-          } else {
-            // If less photos than plants, then (activePlants - photosUploaded) plants have no photos
-            // These definitely need immediate attention
-            int plantsWithoutPhotos = _activePlants - _photosUploaded;
-            _reviewsPending = plantsWithoutPhotos;
-          }
-          
-          // Ensure reasonable bounds
-          _reviewsPending = _reviewsPending.clamp(0, _activePlants);
-        } else {
-          _reviewsPending = 0;
-        }
+        // Use pending schedules from backend (this week's pending schedules)
+        _reviewsPending = _dashboardCounters!.pendingSchedules;
         
         _plantList = response.data.plantList;
         
@@ -92,7 +52,7 @@ class _HospitalDashboardState extends State<HospitalDashboard> {
         print('[DASHBOARD] - Total Mothers: $_totalMothers');
         print('[DASHBOARD] - Active Plants: $_activePlants');
         print('[DASHBOARD] - Photos Uploaded: $_photosUploaded');
-        print('[DASHBOARD] - Plants with Pending Reviews: $_reviewsPending (out of $_activePlants plants)');
+        print('[DASHBOARD] - Pending Schedules (This Week): $_reviewsPending');
         print('[DASHBOARD] - Plant List Count: ${_plantList.length}');
       });
     } else {

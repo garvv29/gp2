@@ -226,7 +226,34 @@ class _MothersListScreenState extends State<MothersListScreen> {
                             children: [
                               _popupDetailRow(Icons.location_city, 'जिला', data.locationDetails.district.districtName, Colors.redAccent),
                               _popupDetailRow(Icons.location_on, 'ब्लॉक', data.locationDetails.block.blockName, Colors.orange),
-                              _popupDetailRow(Icons.home, 'गांव', data.locationDetails.village.villageName, Colors.teal),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      // User Location Info
+                      Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('उपयोगकर्ता पता जानकारी', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                              SizedBox(height: 8),
+                              _popupDetailRow(Icons.location_city, 'गांव', 
+                                data.childInfo.userVillage?.isNotEmpty == true 
+                                  ? data.childInfo.userVillage! 
+                                  : (data.childInfo.villageName?.isNotEmpty == true 
+                                      ? data.childInfo.villageName! 
+                                      : 'उपलब्ध नहीं'), 
+                                Colors.green),
+                              _popupDetailRow(Icons.home, 'पूरा पता', 
+                                data.childInfo.userAddress?.isNotEmpty == true 
+                                  ? data.childInfo.userAddress! 
+                                  : 'उपलब्ध नहीं', 
+                                Colors.indigo),
                             ],
                           ),
                         ),
@@ -759,7 +786,7 @@ class _MothersListScreenState extends State<MothersListScreen> {
                   SizedBox(width: 4),
                   Expanded(
                     child: Text(
-                      '${mother.location.districtName}, ${mother.location.blockName}, ${mother.location.villageName}',
+                      '${mother.location.districtName}, ${mother.location.blockName}',
                       style: TextStyle(fontSize: 13.2, color: Colors.grey[800]),
                     ),
                   ),

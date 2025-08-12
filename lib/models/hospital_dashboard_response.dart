@@ -52,12 +52,14 @@ class HospitalDashboardCounters {
   final int activePlants;
   final int uploadedPhotos;
   final int distributedPlants;
+  final int pendingSchedules;
 
   HospitalDashboardCounters({
     required this.totalMothers,
     required this.activePlants,
     required this.uploadedPhotos,
     required this.distributedPlants,
+    required this.pendingSchedules,
   });
 
   factory HospitalDashboardCounters.fromJson(Map<String, dynamic> json) {
@@ -66,6 +68,7 @@ class HospitalDashboardCounters {
       activePlants: json['active_plants'],
       uploadedPhotos: json['uploaded_photos'],
       distributedPlants: json['distributed_plants'],
+      pendingSchedules: json['pending_schedules'] ?? 0,
     );
   }
 }

@@ -191,6 +191,9 @@ class ApiService {
     required String mantraVandana,
     String? deliveryDocumentPath,
     String? motherPhotoPath,
+    // Address fields
+    String? village,
+    String? address,
     // New yes/no questions
     String? jananiSurakshaYojana,
     String? ayushmanCardUsed,
@@ -223,6 +226,8 @@ class ApiService {
         'weight_at_birth': weightAtBirth,
         'district_lgd_code': districtLgdCode,
         'block_lgd_code': blockLgdCode,
+        'village': village,
+        'address': address,
         'plant_quantity': plantQuantity,
         'birth_certificate': birthCertificate,
         'pmmvy': pmmvy,
