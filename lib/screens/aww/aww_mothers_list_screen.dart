@@ -485,54 +485,53 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
                   SizedBox(width: 8),
                   Text('Block: ${mother.location.blockName}', style: TextStyle(fontSize: 13.2, color: Colors.indigo)),
                   SizedBox(width: 8),
-                  Text('Village: ${mother.location.villageName}', style: TextStyle(fontSize: 13.2, color: Colors.indigo)),
                 ],
               ),
+              // SizedBox(height: 8),
+              // Row(
+              //   children: [
+              //     Text('Schemes: MMJY: ${mother.governmentSchemes?.mmjy ?? "-"}, PMMVY: ${mother.governmentSchemes?.pmmvy ?? "-"}', style: TextStyle(fontSize: 13.2, color: Colors.teal)),
+              //   ],
+              // ),
               SizedBox(height: 8),
               Row(
                 children: [
-                  Text('Schemes: MMJY: ${mother.governmentSchemes?.mmjy ?? "-"}, PMMVY: ${mother.governmentSchemes?.pmmvy ?? "-"}', style: TextStyle(fontSize: 13.2, color: Colors.teal)),
+                  // Expanded(
+                  //   child: Text('Birth Certificate: ${mother.additionalInfo?.birthCertificate ?? "-"}', 
+                  //     style: TextStyle(fontSize: 12, color: Colors.teal),
+                  //     overflow: TextOverflow.ellipsis,
+                  //   ),
+                  // ),
+                  // SizedBox(width: 4),
+                  // Expanded(
+                  //   child: Text('Shramik Card: ${mother.additionalInfo?.isShramikCard ?? "-"}', 
+                  //     style: TextStyle(fontSize: 12, color: Colors.teal),
+                  //     overflow: TextOverflow.ellipsis,
+                  //   ),
+                  // ),
+                  // SizedBox(width: 4),
+                  // Expanded(
+                  //   child: Text('Ayushman Used: ${mother.additionalInfo?.isUsedAyushmanCard ?? "-"}', 
+                  //     style: TextStyle(fontSize: 12, color: Colors.teal),
+                  //     overflow: TextOverflow.ellipsis,
+                  //   ),
+                  // ),
                 ],
               ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text('Birth Certificate: ${mother.additionalInfo?.birthCertificate ?? "-"}', 
-                      style: TextStyle(fontSize: 12, color: Colors.teal),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  SizedBox(width: 4),
-                  Expanded(
-                    child: Text('Shramik Card: ${mother.additionalInfo?.isShramikCard ?? "-"}', 
-                      style: TextStyle(fontSize: 12, color: Colors.teal),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  SizedBox(width: 4),
-                  Expanded(
-                    child: Text('Ayushman Used: ${mother.additionalInfo?.isUsedAyushmanCard ?? "-"}', 
-                      style: TextStyle(fontSize: 12, color: Colors.teal),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Text('Ayushman Amount: ${mother.additionalInfo?.ayushmanCardAmount ?? "-"}', style: TextStyle(fontSize: 13.2, color: Colors.teal)),
-                ],
-              ),
-              SizedBox(height: 8),
-              Row(
-                children: [
-                  Text('NSY Benefit: ${mother.additionalInfo?.isBenefitNsy ?? "-"}', style: TextStyle(fontSize: 13.2, color: Colors.teal)),
-                  SizedBox(width: 8),
-                  Text('NSY Form: ${mother.additionalInfo?.isNsyForm ?? "-"}', style: TextStyle(fontSize: 13.2, color: Colors.teal)),
-                ],
-              ),
+              // SizedBox(height: 8),
+              // Row(
+              //   children: [
+              //     Text('Ayushman Amount: ${mother.additionalInfo?.ayushmanCardAmount ?? "-"}', style: TextStyle(fontSize: 13.2, color: Colors.teal)),
+              //   ],
+              // ),
+              // SizedBox(height: 8),
+              // Row(
+              //   children: [
+              //     Text('NSY Benefit: ${mother.additionalInfo?.isBenefitNsy ?? "-"}', style: TextStyle(fontSize: 13.2, color: Colors.teal)),
+              //     SizedBox(width: 8),
+              //     Text('NSY Form: ${mother.additionalInfo?.isNsyForm ?? "-"}', style: TextStyle(fontSize: 13.2, color: Colors.teal)),
+              //   ],
+              // ),
               SizedBox(height: 12),
               // Photo Upload Summary
               Container(
