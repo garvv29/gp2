@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../../models/mothers_list_response.dart';
 import '../../services/api_service.dart';
 import '../../utils/theme.dart';
@@ -7,6 +8,10 @@ import '../../utils/responsive.dart';
 import 'mitanin_mother_plants_screen.dart';
 
 class AWWMothersListScreen extends StatefulWidget {
+  final int? initialTotalCount;
+
+  const AWWMothersListScreen({Key? key, this.initialTotalCount}) : super(key: key);
+
   @override
   _AWWMothersListScreenState createState() => _AWWMothersListScreenState();
 }
@@ -20,17 +25,34 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
   int _totalPages = 1;
   bool _hasNextPage = false;
   int _totalMothersCount = 0;
+  bool _isSearching = false;
+  Timer? _debounceTimer;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _setInitialTotalCount();
     _loadMothers();
   }
 
-  Future<void> _loadMothers({int page = 1}) async {
+  void _setInitialTotalCount() {
+    // Get the count from dashboard if available
+    if (widget.initialTotalCount != null) {
+      setState(() {
+        _totalMothersCount = widget.initialTotalCount!;
+      });
+    }
+  }
+
+  Future<void> _loadMothers({int page = 1, String? search}) async {
     setState(() => _isLoading = true);
     try {
-      final response = await ApiService.getMitaninMothersList(page: page, limit: 20);
+      final response = await ApiService.getMitaninMothersList(
+        page: page, 
+        limit: 20,
+        search: search ?? _searchQuery,
+      );
       if (response != null && response.success) {
         setState(() {
           if (page == 1) {
@@ -42,38 +64,52 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
           _currentPage = response.data.pagination.currentPage;
           _totalPages = response.data.pagination.totalPages;
           _hasNextPage = response.data.pagination.hasNextPage;
-          _totalMothersCount = response.data.pagination.totalRecords;
+          
+          // Only update count if we don't have initial count from dashboard
+          // या अगर search कर रहे हैं तो API का count use करें
+          if (widget.initialTotalCount == null || (search != null && search.isNotEmpty)) {
+            _totalMothersCount = response.data.pagination.totalRecords;
+          }
+          
           _isLoading = false;
+          _isSearching = false;
         });
       } else {
-        setState(() => _isLoading = false);
+        setState(() {
+          _isLoading = false;
+          _isSearching = false;
+        });
       }
     } catch (e) {
       print('Error loading mothers list: $e');
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _isSearching = false;
+      });
     }
   }
 
   void _filterMothers(String query) {
-    setState(() {
-      _searchQuery = query;
-      if (query.isEmpty) {
-        _filteredMothers = _allMothers;
-      } else {
-        _filteredMothers = _allMothers.where((mother) {
-          return mother.motherName.toLowerCase().contains(query.toLowerCase()) ||
-                 mother.motherMobile.contains(query) ||
-                 mother.childName.toLowerCase().contains(query.toLowerCase()) ||
-                 mother.location.districtName.toLowerCase().contains(query.toLowerCase()) ||
-                 mother.location.blockName.toLowerCase().contains(query.toLowerCase());
-        }).toList();
-      }
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(Duration(milliseconds: 500), () {
+      setState(() {
+        _searchQuery = query;
+        _isSearching = true;
+      });
+      _loadMothers(page: 1, search: query);
     });
+  }
+
+  @override
+  void dispose() {
+    _debounceTimer?.cancel();
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadMoreMothers() async {
     if (!_isLoading && _hasNextPage) {
-      await _loadMothers(page: _currentPage + 1);
+      await _loadMothers(page: _currentPage + 1, search: _searchQuery);
     }
   }
 
@@ -185,7 +221,7 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.refresh),
-            onPressed: _loadMothers,
+            onPressed: () => _loadMothers(page: 1, search: _searchQuery),
           ),
         ],
       ),
@@ -195,10 +231,43 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
           Container(
             padding: ResponsiveUtils.getResponsiveEdgeInsets(context),
             child: TextField(
+              controller: _searchController,
               onChanged: _filterMothers,
               decoration: InputDecoration(
-                hintText: 'माताओं को खोजें',
-                prefixIcon: Icon(Icons.search),
+                hintText: 'माता का नाम, मोबाइल, बच्चे का नाम या जिला खोजें...',
+                prefixIcon: _isSearching 
+                  ? SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: Padding(
+                        padding: EdgeInsets.all(12),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    )
+                  : Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(Icons.clear),
+                      onPressed: () {
+                        _debounceTimer?.cancel();
+                        _searchController.clear();
+                        setState(() {
+                          _searchQuery = '';
+                          _isSearching = false;
+                          // Restore original dashboard count when clearing search
+                          if (widget.initialTotalCount != null) {
+                            _totalMothersCount = widget.initialTotalCount!;
+                          }
+                        });
+                        // Clear the text field and reload original data
+                        FocusScope.of(context).unfocus();
+                        _loadMothers(page: 1, search: '');
+                      },
+                    )
+                  : null,
                 border: OutlineInputBorder(
                   borderRadius: ResponsiveUtils.getResponsiveBorderRadius(context),
                 ),
@@ -222,9 +291,22 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
           
           // Registrations List
           Expanded(
-            child: _isLoading
+            child: _isLoading && _allMothers.isEmpty
                 ? Center(
-                    child: CircularProgressIndicator(color: AppColors.primary),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        CircularProgressIndicator(color: AppColors.primary),
+                        SizedBox(height: 16),
+                        Text(
+                          _isSearching ? 'खोज रही है...' : 'माताओं की सूची लोड हो रही है...',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
                   )
                 : _filteredMothers.isEmpty
                     ? Center(
@@ -243,6 +325,16 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
                                 color: AppColors.textSecondary,
                               ),
                             ),
+                            if (_searchQuery.isNotEmpty) ...[
+                              SizedBox(height: 8),
+                              Text(
+                                '"$_searchQuery" के लिए कोई परिणाम नहीं मिला',
+                                style: TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       )

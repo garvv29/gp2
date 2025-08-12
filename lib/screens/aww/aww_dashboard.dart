@@ -406,7 +406,9 @@ class _AWWDashboardState extends State<AWWDashboard> {
           AppColors.secondary,
           () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => AWWMothersListScreen()),
+            MaterialPageRoute(builder: (context) => AWWMothersListScreen(
+              initialTotalCount: counters.totalMothers,
+            )),
           ),
         ),
         SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),

@@ -1056,10 +1056,14 @@ class ApiService {
     }
   }
 
-  static Future<MothersListResponse?> getMitaninMothersList({int page = 1, int limit = 20}) async {
+  static Future<MothersListResponse?> getMitaninMothersList({int page = 1, int limit = 20, String? search}) async {
     try {
       final token = await _getToken();
-      final url = Uri.parse('${AppConstants.baseUrl}/mitanin/mothers?page=$page&limit=$limit');
+      var queryParams = 'page=$page&limit=$limit';
+      if (search != null && search.isNotEmpty) {
+        queryParams += '&search=${Uri.encodeComponent(search)}';
+      }
+      final url = Uri.parse('${AppConstants.baseUrl}/mitanin/mothers?$queryParams');
       final response = await http.get(
         url,
         headers: {'Authorization': 'Bearer $token'},
