@@ -8,12 +8,14 @@ class MotherDashboardAppBar extends StatefulWidget implements PreferredSizeWidge
   final AppLocalizations l10n;
   final VoidCallback onRefresh;
   final VoidCallback onLogout;
+  final VoidCallback? onDownloadCertificate;
 
   const MotherDashboardAppBar({
     required this.context,
     required this.l10n,
     required this.onRefresh,
     required this.onLogout,
+    this.onDownloadCertificate,
     Key? key,
   }) : super(key: key);
 
@@ -40,6 +42,22 @@ class _MotherDashboardAppBarState extends State<MotherDashboardAppBar> {
       elevation: 0,
       automaticallyImplyLeading: false,
       actions: [
+        if (widget.onDownloadCertificate != null)
+          Container(
+            margin: EdgeInsets.only(right: ResponsiveUtils.getResponsiveGap(context, mobile: 4, tablet: 6, desktop: 8)),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: ResponsiveUtils.getResponsiveBorderRadius(context),
+            ),
+            child: IconButton(
+              icon: Icon(
+                Icons.download,
+                size: ResponsiveUtils.getResponsiveIconSize(context, mobile: 20, tablet: 24, desktop: 28),
+              ),
+              onPressed: widget.onDownloadCertificate,
+              tooltip: 'Download Certificate',
+            ),
+          ),
         Container(
           margin: EdgeInsets.only(right: ResponsiveUtils.getResponsiveGap(context, mobile: 4, tablet: 6, desktop: 8)),
           decoration: BoxDecoration(

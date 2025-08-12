@@ -62,7 +62,7 @@ class PlantOverallProgress extends StatelessWidget {
                 ),
                 SizedBox(width: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),
                 Expanded(
-                  child: _buildProgressStat(l10n.pending, pendingUploads.toString(), AppColors.warning, Icons.schedule),
+                  child: _buildProgressStat('लक्ष्य', pendingUploads.toString(), AppColors.warning, Icons.schedule),
                 ),
                 SizedBox(width: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),
                 Expanded(

@@ -361,6 +361,36 @@ class ApiService {
     }
   }
 
+  static Future<MotherPhotosData?> getAllMotherPhotos() async {
+    try {
+      final token = await _getToken();
+      final url = Uri.parse('${AppConstants.baseUrl}/mother/photos');
+      
+      print('[API REQUEST] GET: $url');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      print('[API RESPONSE] ${response.statusCode}: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return MotherPhotosData.fromJson(data['data']);
+        }
+      }
+      return null;
+    } catch (e) {
+      print('[API ERROR] Get all mother photos failed: $e');
+      return null;
+    }
+  }
+
   static Future<MotherPlantsResponse?> getMotherPlants() async {
     try {
       print('=== GET MOTHER PLANTS API REQUEST START ===');

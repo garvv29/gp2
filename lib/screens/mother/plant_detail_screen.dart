@@ -1367,23 +1367,46 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                                       label: Text('कैमरा से फोटो लें'),
                                       onPressed: () async {
                                         try {
-                                          // Show loading dialog
+                                          // Show compact loading dialog
                                           showDialog(
                                             context: context,
                                             barrierDismissible: false,
-                                            builder: (context) => Center(
+                                            builder: (context) => Dialog(
+                                              backgroundColor: Colors.transparent,
                                               child: Container(
-                                                padding: EdgeInsets.all(20),
+                                                width: 120,
+                                                height: 120,
                                                 decoration: BoxDecoration(
                                                   color: Colors.white,
-                                                  borderRadius: BorderRadius.circular(10),
+                                                  borderRadius: BorderRadius.circular(15),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black26,
+                                                      blurRadius: 10,
+                                                      offset: Offset(0, 4),
+                                                    ),
+                                                  ],
                                                 ),
                                                 child: Column(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisAlignment: MainAxisAlignment.center,
                                                   children: [
-                                                    CircularProgressIndicator(color: AppColors.primary),
-                                                    SizedBox(height: 16),
-                                                    Text('फोटो को process कर रहे हैं...'),
+                                                    SizedBox(
+                                                      width: 40,
+                                                      height: 40,
+                                                      child: CircularProgressIndicator(
+                                                        color: AppColors.primary,
+                                                        strokeWidth: 3,
+                                                      ),
+                                                    ),
+                                                    SizedBox(height: 12),
+                                                    Text(
+                                                      'Processing...',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: AppColors.textSecondary,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
                                                   ],
                                                 ),
                                               ),
@@ -1442,23 +1465,46 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                                       label: Text('गैलरी से फोटो चुनें'),
                                       onPressed: () async {
                                         try {
-                                          // Show loading dialog
+                                          // Show compact loading dialog
                                           showDialog(
                                             context: context,
                                             barrierDismissible: false,
-                                            builder: (context) => Center(
+                                            builder: (context) => Dialog(
+                                              backgroundColor: Colors.transparent,
                                               child: Container(
-                                                padding: EdgeInsets.all(20),
+                                                width: 120,
+                                                height: 120,
                                                 decoration: BoxDecoration(
                                                   color: Colors.white,
-                                                  borderRadius: BorderRadius.circular(10),
+                                                  borderRadius: BorderRadius.circular(15),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: Colors.black26,
+                                                      blurRadius: 10,
+                                                      offset: Offset(0, 4),
+                                                    ),
+                                                  ],
                                                 ),
                                                 child: Column(
-                                                  mainAxisSize: MainAxisSize.min,
+                                                  mainAxisAlignment: MainAxisAlignment.center,
                                                   children: [
-                                                    CircularProgressIndicator(color: AppColors.primary),
-                                                    SizedBox(height: 16),
-                                                    Text('फोटो को process कर रहे हैं...'),
+                                                    SizedBox(
+                                                      width: 40,
+                                                      height: 40,
+                                                      child: CircularProgressIndicator(
+                                                        color: AppColors.primary,
+                                                        strokeWidth: 3,
+                                                      ),
+                                                    ),
+                                                    SizedBox(height: 12),
+                                                    Text(
+                                                      'Processing...',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        color: AppColors.textSecondary,
+                                                        fontWeight: FontWeight.w500,
+                                                      ),
+                                                    ),
                                                   ],
                                                 ),
                                               ),

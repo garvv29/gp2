@@ -4,6 +4,7 @@ import '../../models/plant_monitoring.dart';
 import '../../services/api_service.dart';
 import '../../services/auth_service.dart';
 import '../../services/plant_monitoring_service.dart';
+import '../../services/certificate_download_service.dart';
 import '../../utils/theme.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/responsive.dart';
@@ -107,6 +108,7 @@ class _MotherDashboardState extends State<MotherDashboard> {
         l10n: l10n,
         onRefresh: _refreshMonitoringData,
         onLogout: () => _logout(context, l10n),
+        onDownloadCertificate: () => CertificateDownloadService.downloadMotherCertificate(context),
       ),
       body: SafeArea(
         child: Column(
@@ -282,7 +284,7 @@ class _MotherDashboardState extends State<MotherDashboard> {
                     SizedBox(width: ResponsiveUtils.getResponsiveGap(context, mobile: 3, tablet: 4, desktop: 6)),
                     Expanded(
                       child: _buildPlantProgressStat(
-                        'लंबित',
+                        'लक्ष्य',
                         plant.overallProgress.photosPending.toString(),
                         AppColors.warning,
                       ),

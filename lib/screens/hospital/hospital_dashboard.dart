@@ -19,13 +19,24 @@ class _HospitalDashboardState extends State<HospitalDashboard> {
   int _activePlants = 0;
   int _photosUploaded = 0;
   int _reviewsPending = 0;
+  String _doctorName = '';
 
   List<dynamic> _plantList = [];
 
   @override
   void initState() {
     super.initState();
+    _loadCurrentUser();
     _loadHospitalDashboard();
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final user = await AuthService.getCurrentUser();
+    if (user != null) {
+      setState(() {
+        _doctorName = user.name;
+      });
+    }
   }
 
   HospitalDashboardCounters? _dashboardCounters;
@@ -267,7 +278,7 @@ class _HospitalDashboardState extends State<HospitalDashboard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      l10n.hospitalStaff,
+                      _doctorName.isNotEmpty ? 'डॉ. $_doctorName' : l10n.hospitalStaff,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: Colors.white.withOpacity(0.9),
                         fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 14, tablet: 16, desktop: 18),

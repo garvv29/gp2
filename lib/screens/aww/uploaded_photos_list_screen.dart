@@ -449,10 +449,19 @@ class _UploadedPhotosListScreenState extends State<UploadedPhotosListScreen> {
     final now = DateTime.now();
     final difference = now.difference(date);
     
+    // Format time in 12-hour format with AM/PM
+    String formatTime(DateTime dateTime) {
+      int hour = dateTime.hour;
+      String period = hour >= 12 ? 'PM' : 'AM';
+      if (hour > 12) hour -= 12;
+      if (hour == 0) hour = 12;
+      return '${hour.toString()}:${dateTime.minute.toString().padLeft(2, '0')} $period';
+    }
+    
     if (difference.inDays == 0) {
-      return 'आज ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      return 'आज ${formatTime(date)}';
     } else if (difference.inDays == 1) {
-      return 'कल ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+      return 'कल ${formatTime(date)}';
     } else if (difference.inDays < 7) {
       return '${difference.inDays} दिन पहले';
     } else {
