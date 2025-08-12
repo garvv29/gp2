@@ -19,6 +19,7 @@ import '../models/mother_photos_response.dart';
 import '../models/pending_verification_response.dart';
 import '../models/uploaded_photos_response.dart';
 import '../models/mitanin_mother_detail_response.dart';
+import '../models/mother_search_response.dart';
 
 class ApiService {
   static Future<String?> _getToken() async {
@@ -1278,6 +1279,43 @@ class ApiService {
       'success': false,
       'message': 'AI prediction failed after multiple attempts'
     };
+  }
+
+  // Search mother by mobile number for Mitanin
+  static Future<MotherSearchResponse?> searchMotherByMobile(String mobile) async {
+    try {
+      final token = await _getToken();
+      if (token == null) {
+        throw Exception('No auth token found');
+      }
+      
+      final url = Uri.parse('${AppConstants.baseUrl}/mitanin/search-mother?mobile=$mobile');
+      print('[API REQUEST] GET: $url');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $token',
+        },
+      );
+      
+      print('[API RESPONSE] ${response.statusCode}: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return MotherSearchResponse.fromJson(responseData);
+      } else if (response.statusCode == 404) {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        return MotherSearchResponse.fromJson(responseData);
+      } else {
+        final Map<String, dynamic> responseData = jsonDecode(response.body);
+        throw Exception(responseData['message'] ?? 'Failed to search mother');
+      }
+    } catch (e) {
+      print('[API ERROR] Search mother error: $e');
+      throw Exception('Failed to search mother: $e');
+    }
   }
 }
 

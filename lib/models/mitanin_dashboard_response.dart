@@ -54,8 +54,8 @@ class MitaninCounters {
 
   factory MitaninCounters.fromJson(Map<String, dynamic> json) {
     return MitaninCounters(
-      totalUploadedPhotos: json['total_uploaded_photos'] ?? json['total_verification_photos'] ?? 0,
-      totalMothers: json['total_mothers'] ?? 0,
+      totalUploadedPhotos: json['totalUploadedPhotos'] ?? 0,
+      totalMothers: json['totalMothers'] ?? 0,
       totalPendingVerification: json['total_pending_verification'] ?? 0,
       totalVerificationPhotos: json['total_verification_photos'] ?? 0,
     );

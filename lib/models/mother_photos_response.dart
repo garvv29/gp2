@@ -24,6 +24,10 @@ class MotherPhotoItem {
   final int? fileSize;
   final String uploadDate;
   final bool isVerified;
+  final String? verifiedAt;
+  final String? remarks;
+  final String? childName;
+  final String? childDob;
 
   MotherPhotoItem({
     required this.id,
@@ -33,6 +37,10 @@ class MotherPhotoItem {
     this.fileSize,
     required this.uploadDate,
     required this.isVerified,
+    this.verifiedAt,
+    this.remarks,
+    this.childName,
+    this.childDob,
   });
 
   factory MotherPhotoItem.fromJson(Map<String, dynamic> json) {
@@ -44,6 +52,10 @@ class MotherPhotoItem {
       fileSize: json['file_size'],
       uploadDate: json['upload_date'] ?? '',
       isVerified: json['is_verified'] ?? false,
+      verifiedAt: json['verified_at'],
+      remarks: json['remarks'],
+      childName: json['child_name'],
+      childDob: json['child_dob'],
     );
   }
 

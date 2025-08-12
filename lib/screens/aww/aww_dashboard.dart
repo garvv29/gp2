@@ -6,7 +6,7 @@ import '../../utils/theme.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/responsive.dart';
 import '../welcome_screen.dart';
-import 'aww_mothers_list_screen.dart';
+import 'aww_mothers_search_screen.dart';
 import 'uploaded_photos_list_screen.dart';
 import '../../models/mitanin_dashboard_response.dart';
 
@@ -85,6 +85,20 @@ class _AWWDashboardState extends State<AWWDashboard> {
       elevation: 0,
       automaticallyImplyLeading: false,
       actions: [
+        Container(
+          margin: EdgeInsets.only(right: ResponsiveUtils.getResponsiveGap(context, mobile: 4, tablet: 6, desktop: 8)),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: ResponsiveUtils.getResponsiveBorderRadius(context),
+          ),
+          child: IconButton(
+            icon: Icon(
+              Icons.refresh,
+              size: ResponsiveUtils.getResponsiveIconSize(context, mobile: 20, tablet: 24, desktop: 28),
+            ),
+            onPressed: _loadDashboard,
+          ),
+        ),
         Container(
           margin: EdgeInsets.only(right: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),
           decoration: BoxDecoration(
@@ -379,7 +393,7 @@ class _AWWDashboardState extends State<AWWDashboard> {
           AppColors.primary,
           () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => AWWMothersListScreen()),
+            MaterialPageRoute(builder: (context) => AWWMothersSearchScreen()),
           ),
         ),
         SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),
