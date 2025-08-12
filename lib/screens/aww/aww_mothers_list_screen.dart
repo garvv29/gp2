@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/mothers_list_response.dart';
 import '../../services/api_service.dart';
 import '../../utils/theme.dart';
 import '../../utils/app_localizations.dart';
 import '../../utils/responsive.dart';
-import '../../utils/constants.dart';
 import 'mitanin_mother_plants_screen.dart';
 
 class AWWMothersListScreen extends StatefulWidget {
@@ -18,53 +16,45 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
   List<MotherListItem> _filteredMothers = [];
   bool _isLoading = true;
   String _searchQuery = '';
+  int _currentPage = 1;
+  int _totalPages = 1;
+  bool _hasNextPage = false;
+  int _totalMothersCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadRegistrations();
+    _loadMothers();
   }
 
-  Future<void> _loadRegistrations() async {
+  Future<void> _loadMothers({int page = 1}) async {
     setState(() => _isLoading = true);
     try {
-      List<MotherListItem> allMothers = [];
-      int currentPage = 1;
-      bool hasMoreData = true;
-      
-      // Load all pages of mothers
-      while (hasMoreData) {
-        final prefs = await SharedPreferences.getInstance();
-        final token = prefs.getString('auth_token');
-        final url = Uri.parse('${AppConstants.baseUrl}/mitanin/mothers?page=$currentPage&limit=50');
-        final response = await ApiService.getMothersFromUrl(url, token);
-        
-        if (response != null && response.success) {
-          allMothers.addAll(response.data.mothers);
-          
-          // Check if there are more pages
-          if (response.data.pagination.hasNextPage) {
-            currentPage++;
+      final response = await ApiService.getMitaninMothersList(page: page, limit: 20);
+      if (response != null && response.success) {
+        setState(() {
+          if (page == 1) {
+            _allMothers = response.data.mothers;
           } else {
-            hasMoreData = false;
+            _allMothers.addAll(response.data.mothers);
           }
-        } else {
-          hasMoreData = false;
-        }
+          _filteredMothers = _allMothers;
+          _currentPage = response.data.pagination.currentPage;
+          _totalPages = response.data.pagination.totalPages;
+          _hasNextPage = response.data.pagination.hasNextPage;
+          _totalMothersCount = response.data.pagination.totalRecords;
+          _isLoading = false;
+        });
+      } else {
+        setState(() => _isLoading = false);
       }
-      
-      setState(() {
-        _allMothers = allMothers;
-        _filteredMothers = allMothers;
-        _isLoading = false;
-      });
     } catch (e) {
-      print('Error loading mothers: $e');
+      print('Error loading mothers list: $e');
       setState(() => _isLoading = false);
     }
   }
 
-  void _filterRegistrations(String query) {
+  void _filterMothers(String query) {
     setState(() {
       _searchQuery = query;
       if (query.isEmpty) {
@@ -73,10 +63,18 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
         _filteredMothers = _allMothers.where((mother) {
           return mother.motherName.toLowerCase().contains(query.toLowerCase()) ||
                  mother.motherMobile.contains(query) ||
-                 mother.childName.toLowerCase().contains(query.toLowerCase());
+                 mother.childName.toLowerCase().contains(query.toLowerCase()) ||
+                 mother.location.districtName.toLowerCase().contains(query.toLowerCase()) ||
+                 mother.location.blockName.toLowerCase().contains(query.toLowerCase());
         }).toList();
       }
     });
+  }
+
+  Future<void> _loadMoreMothers() async {
+    if (!_isLoading && _hasNextPage) {
+      await _loadMothers(page: _currentPage + 1);
+    }
   }
 
   Widget _buildPhotoSummaryItem(String label, String count, IconData icon, Color color) {
@@ -187,7 +185,7 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
         actions: [
           IconButton(
             icon: Icon(Icons.refresh),
-            onPressed: _loadRegistrations,
+            onPressed: _loadMothers,
           ),
         ],
       ),
@@ -197,7 +195,7 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
           Container(
             padding: ResponsiveUtils.getResponsiveEdgeInsets(context),
             child: TextField(
-              onChanged: _filterRegistrations,
+              onChanged: _filterMothers,
               decoration: InputDecoration(
                 hintText: 'माताओं को खोजें',
                 prefixIcon: Icon(Icons.search),
@@ -209,6 +207,19 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
               ),
             ),
           ),
+          
+          // Stats Header
+          Container(
+            padding: ResponsiveUtils.getResponsiveEdgeInsets(context, mobile: 16, tablet: 20, desktop: 24),
+            color: AppColors.surface,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildStatItem('कुल माताएं', '${_totalMothersCount}', AppColors.primary),
+              ],
+            ),
+          ),
+          
           // Registrations List
           Expanded(
             child: _isLoading
@@ -235,13 +246,29 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
                           ],
                         ),
                       )
-                    : ListView.builder(
-                        padding: ResponsiveUtils.getResponsiveEdgeInsets(context),
-                        itemCount: _filteredMothers.length,
-                        itemBuilder: (context, index) {
-                          final mother = _filteredMothers[index];
-                          return _buildMotherCard(mother, l10n);
+                    : NotificationListener<ScrollNotification>(
+                        onNotification: (ScrollNotification scrollInfo) {
+                          if (scrollInfo.metrics.pixels == scrollInfo.metrics.maxScrollExtent && !_isLoading && _hasNextPage) {
+                            _loadMoreMothers();
+                          }
+                          return true;
                         },
+                        child: ListView.builder(
+                          padding: ResponsiveUtils.getResponsiveEdgeInsets(context),
+                          itemCount: _filteredMothers.length + (_hasNextPage ? 1 : 0),
+                          itemBuilder: (context, index) {
+                            if (index == _filteredMothers.length) {
+                              return Container(
+                                padding: EdgeInsets.all(16),
+                                child: Center(
+                                  child: CircularProgressIndicator(color: AppColors.primary),
+                                ),
+                              );
+                            }
+                            final mother = _filteredMothers[index];
+                            return _buildMotherCard(mother, l10n);
+                          },
+                        ),
                       ),
           ),
         ],
@@ -484,6 +511,28 @@ class _AWWMothersListScreenState extends State<AWWMothersListScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 20, tablet: 24, desktop: 28),
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 12, tablet: 14, desktop: 16),
+            color: AppColors.textSecondary,
+          ),
+        ),
+      ],
     );
   }
 }

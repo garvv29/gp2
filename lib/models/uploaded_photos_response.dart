@@ -175,12 +175,12 @@ class PhotoPagination {
 
   factory PhotoPagination.fromJson(Map<String, dynamic> json) {
     return PhotoPagination(
-      currentPage: json['current_page'] ?? 1,
-      totalPages: json['total_pages'] ?? 1,
-      totalRecords: json['total_records'] ?? 0,
+      currentPage: json['currentPage'] ?? json['current_page'] ?? 1,
+      totalPages: json['totalPages'] ?? json['total_pages'] ?? 1,
+      totalRecords: json['totalItems'] ?? json['totalRecords'] ?? json['total_records'] ?? 0,
       perPage: json['per_page'] ?? 10,
-      hasNextPage: json['has_next_page'] ?? false,
-      hasPrevPage: json['has_prev_page'] ?? false,
+      hasNextPage: json['hasNextPage'] ?? json['has_next_page'] ?? false,
+      hasPrevPage: json['hasPreviousPage'] ?? json['has_prev_page'] ?? false,
     );
   }
 }

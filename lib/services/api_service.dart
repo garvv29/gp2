@@ -1056,6 +1056,25 @@ class ApiService {
     }
   }
 
+  static Future<MothersListResponse?> getMitaninMothersList({int page = 1, int limit = 20}) async {
+    try {
+      final token = await _getToken();
+      final url = Uri.parse('${AppConstants.baseUrl}/mitanin/mothers?page=$page&limit=$limit');
+      final response = await http.get(
+        url,
+        headers: {'Authorization': 'Bearer $token'},
+      );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = jsonDecode(response.body);
+        return MothersListResponse.fromJson(data);
+      }
+      return null;
+    } catch (e) {
+      print('Error fetching mitanin mothers list: $e');
+      return null;
+    }
+  }
+
   // Helper to get assignment IDs from getMotherPlants()
   static Future<List<int>> getAssignmentIdsFromMotherPlants() async {
     final response = await getMotherPlants();

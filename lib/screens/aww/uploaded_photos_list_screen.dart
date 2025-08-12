@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../../models/uploaded_photos_response.dart';
 import '../../services/api_service.dart';
 import '../../utils/theme.dart';
-import '../../utils/app_localizations.dart';
 import '../../utils/responsive.dart';
 
 class UploadedPhotosListScreen extends StatefulWidget {
@@ -18,6 +17,7 @@ class _UploadedPhotosListScreenState extends State<UploadedPhotosListScreen> {
   int _currentPage = 1;
   int _totalPages = 1;
   bool _hasNextPage = false;
+  int _totalPhotosCount = 0;
 
   @override
   void initState() {
@@ -40,6 +40,7 @@ class _UploadedPhotosListScreenState extends State<UploadedPhotosListScreen> {
           _currentPage = response.data.pagination.currentPage;
           _totalPages = response.data.pagination.totalPages;
           _hasNextPage = response.data.pagination.hasNextPage;
+          _totalPhotosCount = response.data.pagination.totalRecords;
           _isLoading = false;
         });
       } else {
@@ -75,7 +76,6 @@ class _UploadedPhotosListScreenState extends State<UploadedPhotosListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -131,7 +131,7 @@ class _UploadedPhotosListScreenState extends State<UploadedPhotosListScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _buildStatItem('कुल फोटो', '${_allPhotos.length}', AppColors.primary),
+                _buildStatItem('कुल फोटो', '${_totalPhotosCount}', AppColors.primary),
               ],
             ),
           ),

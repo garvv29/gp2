@@ -7,6 +7,7 @@ import '../../utils/app_localizations.dart';
 import '../../utils/responsive.dart';
 import '../welcome_screen.dart';
 import 'aww_mothers_search_screen.dart';
+import 'aww_mothers_list_screen.dart';
 import 'uploaded_photos_list_screen.dart';
 import '../../models/mitanin_dashboard_response.dart';
 
@@ -386,10 +387,10 @@ class _AWWDashboardState extends State<AWWDashboard> {
         ),
         SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 12, tablet: 16, desktop: 20)),
         _buildActionCard(
-          l10n.mothersList,
-          l10n.viewAllMothersAWW,
-          Icons.people,
-          '${counters.totalMothers}',
+          'माता खोजें',
+          'मोबाइल नंबर से माता की जानकारी खोजें',
+          Icons.search,
+          'खोजें',
           AppColors.primary,
           () => Navigator.push(
             context,
@@ -398,11 +399,23 @@ class _AWWDashboardState extends State<AWWDashboard> {
         ),
         SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),
         _buildActionCard(
+          l10n.mothersList,
+          'सभी अस्पतालों की माताओं की सूची देखें',
+          Icons.people,
+          '${counters.totalMothers}',
+          AppColors.secondary,
+          () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => AWWMothersListScreen()),
+          ),
+        ),
+        SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 8, tablet: 12, desktop: 16)),
+        _buildActionCard(
           'अपलोड की गई फोटो देखें',
           'माताओं द्वारा अपलोड की गई फोटो देखें',
           Icons.photo_library,
           '${counters.totalUploadedPhotos}',
-          AppColors.secondary,
+          AppColors.accent,
           () => Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => UploadedPhotosListScreen()),
