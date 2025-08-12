@@ -1168,6 +1168,8 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   }
 
   // Helper method to check if AI predicted plant matches expected plant
+  // AI Detection function disabled for direct upload
+  /* 
   bool _isCorrectPlantDetected(String predictedClass, String expectedPlant) {
     final predicted = predictedClass.toLowerCase().trim();
     final expected = expectedPlant.toLowerCase().trim();
@@ -1263,6 +1265,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
     print('[PLANT DETECTION] No match found - different plant types detected');
     return false;
   }
+  */
 
   // Helper: Show upload photo popup for a week
   void _showUploadPhotoPopup(BuildContext context, int assignmentId, int weekNumber, int monthNumber) async {
@@ -1548,122 +1551,14 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                             errorMessage = null;
                           });
 
-                          // Enhanced AI validation with proper error handling
-                          Map<String, dynamic> aiResult = {'success': false}; // Default to failed
-                          bool needsConfirmation = false;
-                          String confirmationMessage = '';
+                          // DIRECT UPLOAD - No AI validation needed
+                          print('[DIRECT UPLOAD] Proceeding with direct upload...');
                           
-                          // Get current plant info for validation
-                          final currentPlantName = _getDisplayPlantName(_plantDetailData!.assignment.plant.name);
-                          final currentPlantLocalName = _plantDetailData!.assignment.plant.localName;
-                          final plantDisplayName = currentPlantLocalName.isNotEmpty ? currentPlantLocalName : currentPlantName;
-                          
-                          print('[AI VALIDATION] Starting validation for: $plantDisplayName');
-                          print('[AI VALIDATION] Plant Name: $currentPlantName');
-                          print('[AI VALIDATION] Plant Local Name: $currentPlantLocalName');
-                          
-                          try {
-                            // Try AI validation
-                            aiResult = await ApiService.predictPlantImageAI(imagePath!);
-                            print('[AI VALIDATION] API Result: $aiResult');
-                            
-                            if (aiResult['success'] == true && aiResult['data'] != null) {
-                              // AI successful - check if predicted plant matches current plant
-                              final predictedClass = (aiResult['data']['predicted_class']?.toString() ?? '').toLowerCase();
-                              final expectedPlant = '$currentPlantName $currentPlantLocalName'.toLowerCase();
-                              
-                              print('[AI VALIDATION] Predicted Class: "$predictedClass"');
-                              print('[AI VALIDATION] Expected Plant: "$expectedPlant"');
-                              
-                              bool isCorrectPlant = _isCorrectPlantDetected(predictedClass, expectedPlant);
-                              print('[AI VALIDATION] Is Correct Plant: $isCorrectPlant');
-                              
-                              if (!isCorrectPlant) {
-                                // Wrong plant detected by working AI
-                                needsConfirmation = true;
-                                confirmationMessage = 'AI ने इस फोटो को "$predictedClass" बताया है, लेकिन आप $plantDisplayName upload कर रहे हैं।';
-                              }
-                              // If correct plant detected, proceed directly without confirmation
-                            } else {
-                              // AI failed - need confirmation
-                              needsConfirmation = true;
-                              confirmationMessage = 'AI से connect नहीं हो पाया।';
-                              print('[AI VALIDATION] AI failed: ${aiResult['message']}');
-                            }
-                          } catch (e) {
-                            // Network/connection errors - need confirmation
-                            needsConfirmation = true;
-                            confirmationMessage = 'AI से connect नहीं हो पाया।';
-                            print('[AI VALIDATION] Exception: $e');
-                            aiResult = {
-                              'success': false,
-                              'message': 'AI validation error: $e'
-                            };
-                          }
-                          
-                          print('[AI VALIDATION] Needs Confirmation: $needsConfirmation');
-                          print('[AI VALIDATION] Confirmation Message: $confirmationMessage');
-                          
-                          // Show confirmation dialog only if needed
-                          if (needsConfirmation) {
-                            setState(() {
-                              isLoading = false;
-                            });
-                            
-                            bool shouldProceed = await showDialog(
-                              context: context,
-                              barrierDismissible: false,
-                              builder: (context) => AlertDialog(
-                                title: Text('चेतावनी!'),
-                                content: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.warning, color: Colors.orange, size: 48),
-                                    SizedBox(height: 16),
-                                    Text(confirmationMessage),
-                                    SizedBox(height: 12),
-                                    Container(
-                                      padding: EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: Colors.orange[50],
-                                        border: Border.all(color: Colors.orange),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Text(
-                                        'क्या आप sure हैं कि यह $plantDisplayName के पौधे की photo है?',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
-                                        textAlign: TextAlign.center,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: Text('नई फोटो लें'),
-                                  ),
-                                  ElevatedButton(
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                                    onPressed: () => Navigator.pop(context, true),
-                                    child: Text('हाँ, यह $plantDisplayName का पौधा है'),
-                                  ),
-                                ],
-                              ),
-                            );
-
-                            if (!shouldProceed) {
-                              return;
-                            }
-                            
-                            setState(() {
-                              isLoading = true;
-                            });
-                          }
-
-                          // Proceed with upload
                           setState(() {
                             isLoading = true;
                           });
+                          
+                          // No confirmation dialog - proceed directly
                           
                           // Save photo locally first
                           await LocalStorageService.saveLocalPhoto(
@@ -1713,7 +1608,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                             // Refresh local photos
                             await _loadLocalPhotos();
                             Navigator.pop(context);
-                            _showUploadSuccessPopup(context, response['data'], aiResult);
+                            _showUploadSuccessPopup(context, response['data']);
                           } else {
                             setState(() {
                               errorMessage = response['message'] ?? 'अपलोड विफल रहा';
@@ -1731,7 +1626,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
   }
 
   // Helper: Show upload success popup
-  void _showUploadSuccessPopup(BuildContext context, Map<String, dynamic> data, [Map<String, dynamic>? aiResult]) {
+  void _showUploadSuccessPopup(BuildContext context, Map<String, dynamic> data) {
     try {
       final photo = data['photo'];
       final updatedSchedule = data['updated_schedule'];
@@ -1781,64 +1676,26 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                 if (photo['remarks'] != null && safeToString(photo['remarks'], '').isNotEmpty)
                   _buildSuccessDetailRow(Icons.comment, 'Remarks', safeToString(photo['remarks'], '')),
               ],
-              Divider(),
-              // Show AI results only if AI correctly predicted the plant
-              if (aiResult != null && aiResult['success'] == true && aiResult['data'] != null) ...[
-                // Check if AI prediction was correct
-                Builder(
-                  builder: (context) {
-                    final predictedClass = (aiResult['data']['predicted_class']?.toString() ?? '').toLowerCase();
-                    final currentPlantName = _getDisplayPlantName(_plantDetailData!.assignment.plant.name);
-                    final currentPlantLocalName = _plantDetailData!.assignment.plant.localName;
-                    final expectedPlant = '$currentPlantName $currentPlantLocalName'.toLowerCase();
-                    
-                    bool isCorrectPrediction = _isCorrectPlantDetected(predictedClass, expectedPlant);
-                    
-                    if (isCorrectPrediction) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Icon(Icons.check_circle, color: Colors.green, size: 20),
-                              SizedBox(width: 6),
-                              Text('AI Verification:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.green)),
-                            ],
-                          ),
-                          SizedBox(height: 6),
-                          _buildSuccessDetailRow(Icons.nature, 'पहचाना गया पेड़', aiResult['data']['predicted_class'].toString()),
-                          if (aiResult['data']['confidence'] != null)
-                            _buildSuccessDetailRow(Icons.percent, 'AI की विश्वसनीयता',
-                              (aiResult['data']['confidence'] is num)
-                                ? (aiResult['data']['confidence'] * 100).toStringAsFixed(2) + '%'
-                                : aiResult['data']['confidence'].toString()),
-                          Container(
-                            margin: EdgeInsets.only(top: 6),
-                            padding: EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.green[50],
-                              border: Border.all(color: Colors.green),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(Icons.verified, color: Colors.green, size: 16),
-                                SizedBox(width: 6),
-                                Text('सही पौधा verified!', style: TextStyle(color: Colors.green[800], fontWeight: FontWeight.w500)),
-                              ],
-                            ),
-                          ),
-                          Divider(),
-                        ],
-                      );
-                    } else {
-                      // Don't show AI results if prediction was incorrect
-                      return SizedBox.shrink();
-                    }
-                  },
+              
+              // Direct upload success message
+              Container(
+                margin: EdgeInsets.symmetric(vertical: 8),
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green[50],
+                  border: Border.all(color: Colors.green),
+                  borderRadius: BorderRadius.circular(8),
                 ),
-              ],
+                child: Row(
+                  children: [
+                    Icon(Icons.verified, color: Colors.green, size: 20),
+                    SizedBox(width: 8),
+                    Text('फोटो सफलतापूर्वक अपलोड हो गई!', 
+                         style: TextStyle(color: Colors.green[800], fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ),
+              
               if (updatedSchedule != null) ...[
                 _buildSuccessDetailRow(Icons.event, 'Schedule ID', safeToString(updatedSchedule['schedule_id'], 'N/A')),
                 _buildSuccessDetailRow(Icons.calendar_today, 'Week Number', safeToString(updatedSchedule['week_number'], 'N/A')),

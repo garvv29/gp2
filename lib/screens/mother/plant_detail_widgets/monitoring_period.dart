@@ -25,7 +25,12 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final dueDate = DateTime.tryParse(trackingHistory.dueDate);
     final completedDate = trackingHistory.completedDate != null ? DateTime.tryParse(trackingHistory.completedDate!) : null;
-    final hasPhoto = (trackingHistory.uploadStatus == 'uploaded' && trackingHistory.photo != null) || localPhoto != null;
+    final hasPhoto = (trackingHistory.uploadStatus == 'completed' && trackingHistory.photo != null) || 
+                     (trackingHistory.uploadStatus == 'uploaded' && trackingHistory.photo != null) || 
+                     localPhoto != null;
+    final isCompleted = trackingHistory.uploadStatus == 'completed' || 
+                       trackingHistory.uploadStatus == 'uploaded' || 
+                       trackingHistory.completedDate != null;
     
     return Card(
       margin: EdgeInsets.only(bottom: ResponsiveUtils.getResponsiveGap(context, mobile: 12, tablet: 16, desktop: 20)),
@@ -37,7 +42,7 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.w600,
             fontSize: ResponsiveUtils.getResponsiveFontSize(context, mobile: 16, tablet: 18, desktop: 20),
-            color: (trackingHistory.uploadStatus == 'uploaded' || trackingHistory.completedDate != null) 
+            color: isCompleted 
               ? Colors.green.shade700 
               : AppColors.text,
           ),
@@ -86,9 +91,8 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
         ),
         trailing: _buildTrailingWidget(),
         onTap: () {
-          // If already uploaded, don't allow upload action
-          if (trackingHistory.uploadStatus == 'uploaded' || trackingHistory.completedDate != null) {
-            // Show photo in full screen if available
+          // If already uploaded/completed, show photo in full screen
+          if (isCompleted) {
             if (trackingHistory.photo != null) {
               _showPhotoFullScreen(context, trackingHistory.photo!.photoUrl);
             } else if (localPhoto != null) {
@@ -107,9 +111,11 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
   }
 
   Widget _buildTrailingWidget() {
-    final hasServerPhoto = trackingHistory.uploadStatus == 'uploaded' && trackingHistory.photo != null;
+    final isCompleted = trackingHistory.uploadStatus == 'completed' || 
+                       trackingHistory.uploadStatus == 'uploaded' || 
+                       trackingHistory.completedDate != null;
+    final hasServerPhoto = isCompleted && trackingHistory.photo != null;
     final hasLocalPhoto = localPhoto != null;
-    final isCompleted = trackingHistory.uploadStatus == 'uploaded' || trackingHistory.completedDate != null;
     
     // If photo exists (server or local), show photo preview with view indicator
     if (hasServerPhoto || hasLocalPhoto) {
@@ -228,8 +234,9 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
   }
 
   Color _getStatusColor(String status) {
-    if (status == 'uploaded' || trackingHistory.completedDate != null) {
-      return Colors.green;  // Always green for uploaded
+    // Check for completed status first
+    if (status == 'uploaded' || status == 'completed' || trackingHistory.completedDate != null) {
+      return Colors.green;  // Always green for completed/uploaded
     }
 
     // For pending and overdue, check the date
@@ -251,8 +258,9 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
   }
 
   IconData _getStatusIcon(String status) {
-    if (status == 'uploaded' || trackingHistory.completedDate != null) {
-      return Icons.check_circle;  // Always show checkmark for uploaded
+    // Check for completed status first
+    if (status == 'uploaded' || status == 'completed' || trackingHistory.completedDate != null) {
+      return Icons.check_circle;  // Always show checkmark for completed/uploaded
     }
 
     // For pending and overdue, check the date
@@ -277,8 +285,9 @@ class PlantMonitoringPeriodCard extends StatelessWidget {
   bool _canUpload(String uploadStatus, String dueDateStr) {
     print('Checking upload status: $uploadStatus, Due date: $dueDateStr');
     
-    if (uploadStatus == 'uploaded') {
-      print('Upload blocked - already uploaded');
+    // Block upload if already completed/uploaded
+    if (uploadStatus == 'uploaded' || uploadStatus == 'completed') {
+      print('Upload blocked - already completed/uploaded');
       return false;
     }
     
