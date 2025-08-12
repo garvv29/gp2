@@ -15,6 +15,7 @@ import '../models/hospital_dashboard_response.dart';
 import '../models/mother_registration_response.dart';
 import '../models/mothers_list_response.dart';
 import '../models/mother_detail_response.dart';
+import '../models/mother_photos_response.dart';
 import '../models/pending_verification_response.dart';
 import '../models/uploaded_photos_response.dart';
 import '../models/mitanin_mother_detail_response.dart';
@@ -277,6 +278,85 @@ class ApiService {
     } catch (e) {
       // Mock success for demo
       return true;
+    }
+  }
+
+  static Future<bool> uploadMotherPhotos({
+    required int childId,
+    List<String>? certificatePhotoPaths,      // Certificate photos (birth certificate, discharge papers)
+    List<String>? plantDistributionPhotoPaths, // Plant distribution photos (mother+child+plant)
+  }) async {
+    try {
+      final token = await _getToken();
+      final url = Uri.parse('${AppConstants.baseUrl}/hospital/mothers/$childId/photos');
+      
+      var request = http.MultipartRequest('POST', url);
+      request.headers.addAll({
+        'Authorization': 'Bearer $token',
+      });
+      
+      // Add certificate photos if provided
+      if (certificatePhotoPaths != null) {
+        for (String photoPath in certificatePhotoPaths) {
+          request.files.add(await http.MultipartFile.fromPath(
+            'certificate',
+            photoPath,
+          ));
+        }
+      }
+      
+      // Add plant distribution photos if provided
+      if (plantDistributionPhotoPaths != null) {
+        for (String photoPath in plantDistributionPhotoPaths) {
+          request.files.add(await http.MultipartFile.fromPath(
+            'plant_distribution',
+            photoPath,
+          ));
+        }
+      }
+      
+      print('[API REQUEST] POST: $url');
+      print('[API REQUEST] Files: ${request.files.map((f) => f.field).toList()}');
+      
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+      
+      print('[API RESPONSE] ${response.statusCode}: $responseBody');
+      
+      return response.statusCode == 200 || response.statusCode == 201;
+    } catch (e) {
+      print('[API ERROR] Upload mother photos failed: $e');
+      return false;
+    }
+  }
+
+  static Future<MotherPhotosData?> getMotherPhotos(int childId) async {
+    try {
+      final token = await _getToken();
+      final url = Uri.parse('${AppConstants.baseUrl}/hospital/mothers/$childId/photos');
+      
+      print('[API REQUEST] GET: $url');
+      
+      final response = await http.get(
+        url,
+        headers: {
+          'Authorization': 'Bearer $token',
+          'Content-Type': 'application/json',
+        },
+      );
+      
+      print('[API RESPONSE] ${response.statusCode}: ${response.body}');
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return MotherPhotosData.fromJson(data['data']);
+        }
+      }
+      return null;
+    } catch (e) {
+      print('[API ERROR] Get mother photos failed: $e');
+      return null;
     }
   }
 

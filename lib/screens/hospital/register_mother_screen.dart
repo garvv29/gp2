@@ -391,13 +391,13 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
                 _buildPlantQuantitySelection(),
                 SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 16, tablet: 24, desktop: 32)),
                 
-                // Certificate Upload Section
-                _buildSectionHeader(l10n.certificateUpload, Icons.description),
+                // Certificate Upload Section (Birth Certificate, Discharge Papers)
+                _buildSectionHeader('प्रमाण पत्र अपलोड (जन्म प्रमाण/डिस्चार्ज पेपर)', Icons.description),
                 SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 12, tablet: 16, desktop: 20)),
                 
                 _buildFileUpload(
-                  label: l10n.certificateUpload,
-                  subtitle: l10n.certificateUploadHint,
+                  label: 'प्रमाण पत्र फोटो',
+                  subtitle: 'जन्म प्रमाण पत्र या डिस्चार्ज पेपर की फोटो',
                   filePath: _certificatePath,
                   onTap: () => _pickImageFromCamera(true),
                   icon: Icons.description,
@@ -409,13 +409,13 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
                   ),
                 SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 16, tablet: 24, desktop: 32)),
                 
-                // Photo Upload Section
-                _buildSectionHeader(l10n.photoUpload, Icons.camera_alt),
+                // Plant Distribution Photo Section (Mother+Child+Plant)
+                _buildSectionHeader('पौधा वितरण फोटो (माँ+बच्चा+पौधा)', Icons.camera_alt),
                 SizedBox(height: ResponsiveUtils.getResponsiveGap(context, mobile: 12, tablet: 16, desktop: 20)),
                 
                 _buildFileUpload(
-                  label: l10n.photoUpload,
-                  subtitle: l10n.photoUploadHint,
+                  label: 'पौधा वितरण फोटो',
+                  subtitle: 'माँ, बच्चा और पौधे की एक साथ फोटो',
                   filePath: _photoPath,
                   onTap: () => _pickImageFromCamera(false),
                   icon: Icons.camera_alt,
@@ -1070,6 +1070,37 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
       print('[REGISTRATION RESPONSE] success: \\${response?.success}, message: \\${response?.message}, data: \\${response?.data}');
 
       if (response != null && response.success) {
+        // Upload photos to the new mother photos storage system if available
+        bool photosUploaded = true;
+        if (_motherPhoto != null || _certificatePhoto != null) {
+          try {
+            // Prepare photo paths according to new photo types
+            List<String>? certificatePhotoPaths;
+            List<String>? plantDistributionPhotoPaths;
+            
+            if (_certificatePhoto != null) {
+              certificatePhotoPaths = [_certificatePhoto!.path];
+            }
+            
+            if (_motherPhoto != null) {
+              plantDistributionPhotoPaths = [_motherPhoto!.path];
+            }
+            
+            photosUploaded = await ApiService.uploadMotherPhotos(
+              childId: response.data.childId,
+              certificatePhotoPaths: certificatePhotoPaths,
+              plantDistributionPhotoPaths: plantDistributionPhotoPaths,
+            );
+            
+            if (!photosUploaded) {
+              print('[WARNING] Photos upload failed but registration was successful');
+            }
+          } catch (e) {
+            print('[ERROR] Photos upload error: $e');
+            photosUploaded = false;
+          }
+        }
+        
         // Show a dialog with registration details
         showDialog(
           context: context,
@@ -1092,6 +1123,14 @@ class _RegisterMotherScreenState extends State<RegisterMotherScreen> {
                     'पंजीकरण सफल',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
                   ),
+                  if (!photosUploaded && (_motherPhoto != null || _certificatePhoto != null))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        'फोटो अपलोड में समस्या',
+                        style: TextStyle(color: Colors.orange[200], fontSize: 14),
+                      ),
+                    ),
                 ],
               ),
             ),

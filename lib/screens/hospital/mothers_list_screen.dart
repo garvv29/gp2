@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:io';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:device_info_plus/device_info_plus.dart';
 import '../../models/mothers_list_response.dart';
 import '../../models/mother_detail_response.dart';
+import '../../models/mother_photos_response.dart';
 import '../../services/api_service.dart';
 import '../../utils/theme.dart';
 import '../../utils/app_localizations.dart';
@@ -376,6 +382,70 @@ class _MothersListScreenState extends State<MothersListScreen> {
                     ],
                   ),
                 ),
+                SizedBox(height: 10),
+                // Mother Photos Section
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: FutureBuilder<MotherPhotosData?>(
+                    future: ApiService.getMotherPhotos(data.childInfo.childId),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Column(
+                              children: [
+                                Text('फोटो लोड हो रहे हैं...', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                SizedBox(height: 8),
+                                CircularProgressIndicator(color: AppColors.primary),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      
+                      if (snapshot.hasError || !snapshot.hasData || snapshot.data!.photos.isEmpty) {
+                        return Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('माँ की फोटो', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                                SizedBox(height: 8),
+                                Text('कोई फोटो उपलब्ध नहीं है', style: TextStyle(color: Colors.grey[600])),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+                      
+                      final motherPhotos = snapshot.data!;
+                      return Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('माँ की फोटो (${motherPhotos.totalPhotos})', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                              SizedBox(height: 12),
+                              ...motherPhotos.photos.map((photo) => 
+                                _buildPhotoDownloadItem(photo)
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                SizedBox(height: 10),
                 // Actions
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -798,5 +868,168 @@ class _MothersListScreenState extends State<MothersListScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildPhotoDownloadItem(MotherPhotoItem photo) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Icon(
+            photo.photoType == 'certificate' ? Icons.description : Icons.eco,
+            color: photo.photoType == 'certificate' ? Colors.blue : Colors.green,
+            size: 20,
+          ),
+          SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  photo.displayName,
+                  style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+                ),
+                Text(
+                  '${photo.formattedFileSize} • ${_formatPhotoDate(photo.uploadDate)}',
+                  style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => _downloadPhoto(photo),
+            icon: Icon(Icons.download, size: 16),
+            label: Text('डाउनलोड', style: TextStyle(fontSize: 12)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: Colors.white,
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              minimumSize: Size(80, 32),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatPhotoDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      return '${date.day}/${date.month}/${date.year}';
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  Future<void> _downloadPhoto(MotherPhotoItem photo) async {
+    try {
+      // Check Android version and request appropriate permissions
+      bool hasPermission = false;
+      
+      if (Platform.isAndroid) {
+        final androidInfo = await DeviceInfoPlugin().androidInfo;
+        if (androidInfo.version.sdkInt >= 33) {
+          // Android 13+ - request photos permission
+          var status = await Permission.photos.status;
+          if (!status.isGranted) {
+            status = await Permission.photos.request();
+          }
+          hasPermission = status.isGranted;
+        } else if (androidInfo.version.sdkInt >= 30) {
+          // Android 11-12 - request storage permission
+          var status = await Permission.storage.status;
+          if (!status.isGranted) {
+            status = await Permission.storage.request();
+          }
+          hasPermission = status.isGranted;
+        } else {
+          // Android 10 and below - request storage permission
+          var status = await Permission.storage.status;
+          if (!status.isGranted) {
+            status = await Permission.storage.request();
+          }
+          hasPermission = status.isGranted;
+        }
+      } else {
+        hasPermission = true; // iOS doesn't need these permissions
+      }
+
+      if (!hasPermission) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Storage permission की जरूरत है फोटो save करने के लिए'),
+            backgroundColor: AppColors.error,
+            action: SnackBarAction(
+              label: 'Settings',
+              onPressed: () => openAppSettings(),
+            ),
+          ),
+        );
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${photo.displayName} डाउनलोड हो रही है...'),
+          backgroundColor: AppColors.primary,
+        ),
+      );
+      
+      final response = await http.get(Uri.parse(photo.photoUrl));
+      
+      if (response.statusCode == 200) {
+        // Get the external storage directory (Downloads folder)
+        Directory? downloadsDirectory;
+        
+        if (Platform.isAndroid) {
+          // Try to get the Downloads directory
+          try {
+            downloadsDirectory = Directory('/storage/emulated/0/Download');
+            if (!await downloadsDirectory.exists()) {
+              // Fallback to app documents directory
+              downloadsDirectory = await getExternalStorageDirectory();
+            }
+          } catch (e) {
+            // Fallback to app documents directory
+            downloadsDirectory = await getExternalStorageDirectory();
+          }
+        } else {
+          // For iOS, use documents directory
+          downloadsDirectory = await getApplicationDocumentsDirectory();
+        }
+        
+        if (downloadsDirectory != null) {
+          // Create filename with timestamp
+          final fileName = 'mother_${photo.photoType}_${photo.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+          final file = File('${downloadsDirectory.path}/$fileName');
+          
+          // Write the file
+          await file.writeAsBytes(response.bodyBytes);
+          
+          print('[DOWNLOAD] File saved at: ${file.path}');
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${photo.displayName} सफलतापूर्वक save हो गई!\nPath: ${file.path}'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        } else {
+          throw Exception('Storage directory not accessible');
+        }
+      } else {
+        throw Exception('Download failed with status: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('[DOWNLOAD] Error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('डाउनलोड में त्रुटि: $e'),
+          backgroundColor: AppColors.error,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
   }
 }

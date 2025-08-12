@@ -1,3 +1,5 @@
+import 'mother_photos_response.dart';
+
 class MotherDetailResponse {
   final bool success;
   final String message;
@@ -25,6 +27,7 @@ class MotherDetailData {
   final GovernmentSchemes governmentSchemes;
   final AdditionalInfo additionalInfo;
   final PlantTrackingInfo plantTrackingInfo;
+  final MotherPhotosData? motherPhotos;
 
   MotherDetailData({
     required this.childInfo,
@@ -33,6 +36,7 @@ class MotherDetailData {
     required this.governmentSchemes,
     required this.additionalInfo,
     required this.plantTrackingInfo,
+    this.motherPhotos,
   });
 
   factory MotherDetailData.fromJson(Map<String, dynamic> json) {
@@ -43,6 +47,9 @@ class MotherDetailData {
       governmentSchemes: GovernmentSchemes.fromJson(json['government_schemes'] ?? {}),
       additionalInfo: AdditionalInfo.fromJson(json['additional_info'] ?? {}),
       plantTrackingInfo: PlantTrackingInfo.fromJson(json['plant_tracking_info'] ?? {}),
+      motherPhotos: json['mother_photos'] != null 
+          ? MotherPhotosData.fromJson(json['mother_photos']) 
+          : null,
     );
   }
 }
